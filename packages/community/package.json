@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/community",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "FLIHub Community architectural boundary placeholder.",
+  "exports": "./src/index.ts"
+}

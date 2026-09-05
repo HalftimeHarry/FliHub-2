@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/core",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Shared FLIHub value objects, identifiers, organizations, money, and errors.",
+  "exports": "./src/index.ts"
+}

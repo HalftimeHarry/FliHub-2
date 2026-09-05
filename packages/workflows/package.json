@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/workflows",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Lightweight typed pipeline abstractions for FLIHub business workflows.",
+  "exports": "./src/index.ts"
+}
