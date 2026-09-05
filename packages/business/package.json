@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/business",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "FLIHub Business operations domain boundary proof of concept.",
+  "exports": "./src/index.ts"
+}

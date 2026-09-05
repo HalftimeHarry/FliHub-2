@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/league",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "FLIHub League professional sports operations domain proof of concept.",
+  "exports": "./src/index.ts"
+}
