@@ -5,10 +5,12 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ],
   "scripts": {
     "build": "tsc --noEmit",
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev --workspace=@flihub/api\" \"npm run dev --workspace=@flihub/web\"",
     "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -35,6 +37,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.4.1",
+    "concurrently": "^10.0.5",
     "eslint": "^10.10.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",

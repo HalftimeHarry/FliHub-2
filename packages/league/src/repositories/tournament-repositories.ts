@@ -6,10 +6,12 @@ import type { TournamentRegistration } from '../tournament-registration.js';
 
 export interface PlayerRepository {
   findById(id: Identifier): Promise<Player | undefined>;
+  list(): Promise<readonly Player[]>;
 }
 
 export interface TournamentRepository {
   findById(id: Identifier): Promise<Tournament | undefined>;
+  list(): Promise<readonly Tournament[]>;
 }
 
 export interface TournamentRegistrationRepository {
@@ -19,6 +21,7 @@ export interface TournamentRegistrationRepository {
     playerId: Identifier
   ): Promise<boolean>;
   save(registration: TournamentRegistration): Promise<void>;
+  list(): Promise<readonly TournamentRegistration[]>;
 }
 
 export class InMemoryPlayerRepository
@@ -64,5 +67,9 @@ export class InMemoryTournamentRegistrationRepository implements TournamentRegis
   public save(registration: TournamentRegistration): Promise<void> {
     this.registrations.set(registration.id.value, registration);
     return Promise.resolve();
+  }
+
+  public list(): Promise<readonly TournamentRegistration[]> {
+    return Promise.resolve([...this.registrations.values()]);
   }
 }

@@ -6,14 +6,17 @@ import type { ReimbursementClaim } from './reimbursement-claim.js';
 
 export interface DepartmentRepository {
   findById(id: Identifier): Promise<Department | undefined>;
+  list(): Promise<readonly Department[]>;
 }
 
 export interface ProjectRepository {
   findById(id: Identifier): Promise<Project | undefined>;
+  list(): Promise<readonly Project[]>;
 }
 
 export interface ReimbursementClaimRepository {
   save(claim: ReimbursementClaim): Promise<void>;
+  list(): Promise<readonly ReimbursementClaim[]>;
 }
 
 export class InMemoryDepartmentRepository

@@ -1,0 +1,24 @@
+{
+  "name": "@flihub/api",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Minimal HTTP API exposing FLIHub domain workflows for local development.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@flihub/business": "*",
+    "@flihub/core": "*",
+    "@flihub/league": "*",
+    "@flihub/workflows": "*",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.3"
+  }
+}
