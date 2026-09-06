@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/sponsorship",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "FLIHub Sponsorship domain boundary placeholder.",
+  "exports": "./src/index.ts"
+}

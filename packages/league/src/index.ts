@@ -1,4 +1,4 @@
-export { League } from './league.js';
+export { League, type LeagueFormat } from './league.js';
 export { Player } from './player.js';
 export {
   InMemoryPlayerRepository,

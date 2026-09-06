@@ -12,6 +12,8 @@ The initial League model demonstrates:
 
 It also includes `Player` because tournament registration needs a participant. Future League concepts such as teams, memberships, registrations, eligibility, rankings, schedules, scores, results, officials, tournament staff, and prize structures should stay inside the League domain unless a cross-platform abstraction becomes necessary.
 
+League configuration includes a standard FLI Golf format plus school-selectable alternatives. Organizations identify whether they are an operator or school and whether they pay teams. FLI Golf can use `type: operator` with `paysTeams: true`; school organizations default to `type: school` with `paysTeams: false`.
+
 ## Business proof of concept
 
 The initial Business model demonstrates:

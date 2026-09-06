@@ -1,9 +1,14 @@
 import {
   ArrowDown,
   ArrowRight,
+  BriefcaseBusiness,
   Boxes,
   Database,
+  GitBranch,
   Info,
+  Layers3,
+  Sparkles,
+  Trophy,
   Users,
   X,
   Workflow
@@ -41,10 +46,10 @@ const toneClasses: Record<DiagramNodeProps['tone'], string> = {
 };
 
 const defaultProperties: Record<string, readonly string[]> = {
-  Organization: ['id', 'name', 'slug', 'status'],
+  Organization: ['id', 'name', 'slug', 'type', 'paysTeams', 'status'],
   Identifier: ['value', 'entity type', 'validation rules'],
   Money: ['amountMinorUnits', 'currency'],
-  League: ['id', 'organizationId', 'name'],
+  League: ['id', 'organizationId', 'name', 'format', 'paysTeams'],
   Season: ['id', 'leagueId', 'name', 'startDate', 'endDate', 'status'],
   Tournament: [
     'id',
@@ -162,7 +167,22 @@ const defaultProperties: Record<string, readonly string[]> = {
     'lastFourDigits',
     'active'
   ],
-  Paid: ['settledAt', 'paymentReference', 'settlementStatus']
+  Paid: ['settledAt', 'paymentReference', 'settlementStatus'],
+  FantasyLeague: ['id', 'organizationId', 'name', 'format', 'status'],
+  FantasyTeam: ['id', 'fantasyLeagueId', 'ownerId', 'roster', 'points'],
+  FantasyScoring: ['id', 'fantasyLeagueId', 'rules', 'updatedAt'],
+  CommunityProgram: ['id', 'organizationId', 'name', 'participants', 'status'],
+  Sponsorship: ['id', 'organizationId', 'sponsorId', 'scope', 'tier', 'status'],
+  SponsorshipProgram: ['id', 'organizationId', 'name', 'benefits', 'status'],
+  ContentSubmission: [
+    'id',
+    'authorId',
+    'text or media',
+    'submittedAt',
+    'status',
+    'reviewedBy',
+    'reviewedAt'
+  ]
 };
 
 function DiagramNode({
@@ -334,11 +354,42 @@ function ObjectBrowser() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="core">
-          <TabsList className="w-full overflow-x-auto sm:w-fit">
-            <TabsTrigger value="core">Core</TabsTrigger>
-            <TabsTrigger value="league">League</TabsTrigger>
-            <TabsTrigger value="business">Business</TabsTrigger>
-            <TabsTrigger value="operations">Operations</TabsTrigger>
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-5">
+            <TabsTrigger
+              value="core"
+              className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 data-[state=active]:bg-sky-500 data-[state=active]:text-white dark:text-sky-300 dark:data-[state=active]:text-white"
+            >
+              <Layers3 />
+              Core
+            </TabsTrigger>
+            <TabsTrigger
+              value="league"
+              className="bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20 data-[state=active]:bg-emerald-500 data-[state=active]:text-white dark:text-emerald-300 dark:data-[state=active]:text-white"
+            >
+              <Trophy />
+              League
+            </TabsTrigger>
+            <TabsTrigger
+              value="business"
+              className="bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 data-[state=active]:bg-amber-500 data-[state=active]:text-white dark:text-amber-300 dark:data-[state=active]:text-white"
+            >
+              <BriefcaseBusiness />
+              Business
+            </TabsTrigger>
+            <TabsTrigger
+              value="operations"
+              className="bg-violet-500/10 text-violet-700 hover:bg-violet-500/20 data-[state=active]:bg-violet-500 data-[state=active]:text-white dark:text-violet-300 dark:data-[state=active]:text-white"
+            >
+              <GitBranch />
+              Operations
+            </TabsTrigger>
+            <TabsTrigger
+              value="extended"
+              className="bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 data-[state=active]:bg-rose-500 data-[state=active]:text-white dark:text-rose-300 dark:data-[state=active]:text-white"
+            >
+              <Sparkles />
+              Extended
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="core">
             <ObjectBrowserGroup
@@ -387,6 +438,20 @@ function ObjectBrowser() {
               tone="support"
             />
           </TabsContent>
+          <TabsContent value="extended">
+            <ObjectBrowserGroup
+              names={[
+                'FantasyLeague',
+                'FantasyTeam',
+                'FantasyScoring',
+                'CommunityProgram',
+                'Sponsorship',
+                'SponsorshipProgram',
+                'ContentSubmission'
+              ]}
+              tone="support"
+            />
+          </TabsContent>
         </Tabs>
       </CardContent>
     </Card>
@@ -424,7 +489,7 @@ export function ObjectDiagram({ refreshKey }: { readonly refreshKey: number }) {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="objects">
-            <TabsList>
+            <TabsList className="gap-1">
               <TabsTrigger value="objects">
                 <Boxes />
                 Core objects

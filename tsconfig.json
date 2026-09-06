@@ -22,7 +22,10 @@
       "@flihub/persistence": ["packages/persistence/src/index.ts"],
       "@flihub/league": ["packages/league/src/index.ts"],
       "@flihub/business": ["packages/business/src/index.ts"],
-      "@flihub/community": ["packages/community/src/index.ts"]
+      "@flihub/community": ["packages/community/src/index.ts"],
+      "@flihub/fantasy": ["packages/fantasy/src/index.ts"],
+      "@flihub/sponsorship": ["packages/sponsorship/src/index.ts"],
+      "@flihub/content": ["packages/content/src/index.ts"]
     }
   },
   "include": ["packages/**/*.ts", "eslint.config.js", "vitest.config.ts"],

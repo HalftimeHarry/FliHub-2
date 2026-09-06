@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/content",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "FLIHub Content domain boundary placeholder.",
+  "exports": "./src/index.ts"
+}

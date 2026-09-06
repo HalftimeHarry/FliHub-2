@@ -1,6 +1,6 @@
 # Architecture
 
-FLIHub is one platform with three major application domains: FLIHub League, FLIHub Business, and FLIHub Community. These domains share a small Core package but remain separated so each can become an independent application surface if future product direction requires it.
+FLIHub is one platform with separate application domains: FLIHub League, FLIHub Business, FLIHub Community, FLIHub Fantasy, FLIHub Sponsorship, and FLIHub Content. These domains share a small Core package but remain separated so each can become an independent application surface if future product direction requires it.
 
 ## Package boundaries
 
@@ -9,9 +9,14 @@ FLIHub is one platform with three major application domains: FLIHub League, FLIH
 - `@flihub/persistence` contains framework-independent repository contracts and in-memory adapters for proof-of-concept usage.
 - `@flihub/league` contains professional sports operations concepts and the tournament registration proof of concept.
 - `@flihub/business` contains internal operations concepts and the reimbursement claim proof of concept.
-- `@flihub/community` is intentionally only a boundary placeholder in this phase.
+- `@flihub/community` contains participant-facing community services; it is currently a boundary placeholder.
+- `@flihub/fantasy` owns fantasy leagues, drafts, rosters, scoring, and fantasy standings; it is currently a boundary placeholder.
+- `@flihub/sponsorship` owns sponsors, sponsorship programs, commercial placements, and sponsor benefits; it is currently a boundary placeholder.
+- `@flihub/content` owns moderated posts, media submissions, publishing status, and content review; it is currently a boundary placeholder.
 
 Core must not become a dumping ground. A concept belongs in Core only when it is genuinely reusable and not tied to League, Business, or Community behavior.
+
+League remains the source of truth for real competition data. Fantasy may reference eligible League players and results, Sponsorship may reference League events and course assets, and Content may reference public profiles and events, but those subdomains must not own League entities. Community owns participant-facing experiences without becoming a second League model.
 
 ## Architectural style
 

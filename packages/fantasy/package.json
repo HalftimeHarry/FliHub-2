@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/fantasy",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "FLIHub Fantasy domain boundary placeholder.",
+  "exports": "./src/index.ts"
+}
