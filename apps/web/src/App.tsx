@@ -33,7 +33,9 @@ import {
   fetchProjects,
   fetchTournaments,
   fetchUsers,
+  getOrganizationCatalog,
   getOrganizationHeaders,
+  registerCustomOrganization,
   seedDefaultOrganizations,
   setActiveOrganization,
   setActiveUser,
@@ -500,7 +502,11 @@ export function App() {
         const savedOrganization = window.localStorage.getItem(
           'flihub-active-organization'
         );
-        const nextOrganizationId = savedOrganization ?? seeded[0].id;
+        const nextOrganizationId =
+          savedOrganization ??
+          getOrganizationCatalog().find((organization) => organization.id === 'fgl')
+            ?.id ??
+          seeded[0].id;
         setActiveOrganization(nextOrganizationId);
         setSelectedOrganizationId(nextOrganizationId);
         const matchingUser = fetchedUsers.find(
@@ -544,7 +550,15 @@ export function App() {
           {activeView === 'start-guide' ? (
             <StartGuide
               onRegistered={(setup) => {
+                const customOrganization = registerCustomOrganization({
+                  name: setup.organizationName,
+                  enabledComponents: setup.selectedComponents
+                });
+
+                setOrganizations(getOrganizationCatalog());
                 setOrganizationSetup(setup);
+                setActiveOrganization(customOrganization.id);
+                setSelectedOrganizationId(customOrganization.id);
                 setActiveView('home');
               }}
             />

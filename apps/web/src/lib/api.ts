@@ -63,6 +63,112 @@ export interface OrganizationDto {
 
 const userStorageKey = 'flihub-active-user';
 const organizationStorageKey = 'flihub-active-organization';
+const customOrganizationsStorageKey = 'flihub-custom-organizations';
+
+const getStorage = (): Storage | undefined => {
+  try {
+    return typeof globalThis !== 'undefined' && 'localStorage' in globalThis
+      ? globalThis.localStorage
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const readCustomOrganizations = (
+  storage: Storage | undefined = getStorage()
+): readonly OrganizationDto[] => {
+  if (storage === undefined) {
+    return [];
+  }
+
+  try {
+    const rawValue = storage.getItem(customOrganizationsStorageKey);
+    if (rawValue === null) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue.filter(
+      (value): value is OrganizationDto =>
+        typeof value === 'object' &&
+        value !== null &&
+        'id' in value &&
+        typeof value.id === 'string' &&
+        'name' in value &&
+        typeof value.name === 'string' &&
+        'type' in value &&
+        (value.type === 'operator' || value.type === 'school') &&
+        'paysTeams' in value &&
+        typeof value.paysTeams === 'boolean' &&
+        'enabledComponents' in value &&
+        Array.isArray(value.enabledComponents)
+    );
+  } catch {
+    return [];
+  }
+};
+
+export const getOrganizationCatalog = (
+  storage: Storage | undefined = getStorage()
+): readonly OrganizationDto[] => {
+  const customOrganizations = readCustomOrganizations(storage);
+
+  return [
+    ...demoOrganizations,
+    ...customOrganizations.filter(
+      (organization) =>
+        !demoOrganizations.some((seeded) => seeded.id === organization.id)
+    )
+  ];
+};
+
+export const registerCustomOrganization = (
+  organization: {
+    readonly name: string;
+    readonly enabledComponents: readonly string[];
+  },
+  storage: Storage | undefined = getStorage()
+): OrganizationDto => {
+  const trimmedName = organization.name.trim();
+
+  if (trimmedName.length === 0) {
+    throw new Error('Organization name is required.');
+  }
+
+  const nextOrganization: OrganizationDto = {
+    id: trimmedName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || `custom-org-${Date.now().toString(36)}`,
+    name: trimmedName,
+    type: 'school',
+    paysTeams: false,
+    enabledComponents: [...new Set(organization.enabledComponents)]
+  };
+
+  const customOrganizations = readCustomOrganizations(storage);
+  const mergedOrganizations = customOrganizations.some(
+    (existing) => existing.id === nextOrganization.id
+  )
+    ? customOrganizations.map((existing) =>
+        existing.id === nextOrganization.id ? nextOrganization : existing
+      )
+    : [...customOrganizations, nextOrganization];
+
+  if (storage !== undefined) {
+    storage.setItem(
+      customOrganizationsStorageKey,
+      JSON.stringify(mergedOrganizations)
+    );
+  }
+
+  return nextOrganization;
+};
 
 const demoUsers: readonly UserDto[] = [
   {
@@ -243,9 +349,9 @@ const getDemoJson = (path: string): unknown => {
   }
   if (path === '/organization') {
     return (
-      demoOrganizations.find(
+      getOrganizationCatalog().find(
         (organization) => organization.id === organizationId
-      ) ?? demoOrganizations[0]
+      ) ?? getOrganizationCatalog()[0]
     );
   }
 
@@ -303,5 +409,5 @@ export const seedDefaultOrganizations = async (): Promise<
     // The in-memory demo fallback below is used when the API is not running.
   }
 
-  return demoOrganizations;
+  return getOrganizationCatalog();
 };
