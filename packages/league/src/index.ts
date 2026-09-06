@@ -1,16 +1,19 @@
 export { League, type LeagueFormat } from './league.js';
 export { Course } from './course.js';
 export { Hole } from './hole.js';
-export { Player, type PlayerType } from './player.js';
+export { Player, type PlayerGender, type PlayerType } from './player.js';
+export { MAX_TEAMS_PER_LEAGUE, Team } from './team.js';
 export {
   InMemoryCourseRepository,
   InMemoryHoleRepository,
   InMemoryPlayerRepository,
+  InMemoryTeamRepository,
   InMemoryTournamentRegistrationRepository,
   InMemoryTournamentRepository,
   type CourseRepository,
   type HoleRepository,
   type PlayerRepository,
+  type TeamRepository,
   type TournamentRegistrationRepository,
   type TournamentRepository
 } from './repositories/tournament-repositories.js';

@@ -1,6 +1,7 @@
 import { DomainError, Identifier } from '@flihub/core';
 
 export type PlayerType = 'student' | 'professional';
+export type PlayerGender = 'male' | 'female';
 
 export class Player {
   private constructor(
@@ -10,7 +11,8 @@ export class Player {
     public readonly active: boolean,
     public readonly playerType: PlayerType,
     public readonly schoolId: Identifier | undefined,
-    public readonly professionalSince: Date | undefined
+    public readonly professionalSince: Date | undefined,
+    public readonly gender: PlayerGender | undefined
   ) {}
 
   public static create(input: {
@@ -21,6 +23,7 @@ export class Player {
     playerType?: PlayerType;
     schoolId?: string;
     professionalSince?: Date;
+    gender?: PlayerGender;
   }): Player {
     const displayName = input.displayName.trim();
 
@@ -42,7 +45,8 @@ export class Player {
         : Identifier.create(input.schoolId, 'school id'),
       input.professionalSince === undefined
         ? undefined
-        : new Date(input.professionalSince)
+        : new Date(input.professionalSince),
+      input.gender
     );
   }
 
@@ -58,7 +62,8 @@ export class Player {
       this.active,
       'professional',
       this.schoolId,
-      new Date(promotedAt)
+      new Date(promotedAt),
+      this.gender
     );
   }
 

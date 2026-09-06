@@ -1,5 +1,12 @@
 import { Organization } from '@flihub/core';
 import {
+  FantasyLeague,
+  FantasyTeam,
+  InMemoryDraftRoomRepository,
+  InMemoryFantasyLeagueRepository,
+  InMemoryFantasyTeamRepository
+} from '@flihub/fantasy';
+import {
   Department,
   InMemoryDepartmentRepository,
   InMemoryProjectRepository,
@@ -12,9 +19,11 @@ import {
   InMemoryCourseRepository,
   InMemoryHoleRepository,
   InMemoryPlayerRepository,
+  InMemoryTeamRepository,
   InMemoryTournamentRegistrationRepository,
   InMemoryTournamentRepository,
   Player,
+  Team,
   Tournament
 } from '@flihub/league';
 
@@ -132,39 +141,61 @@ export const createLeagueRepositories = () => ({
       id: 'player-1',
       organizationId: 'fgl',
       displayName: 'Alex Rivera',
-      playerType: 'professional'
+      playerType: 'professional',
+      gender: 'male'
     }),
     Player.create({
       id: 'player-2',
       organizationId: 'fgl',
       displayName: 'Jordan Blake',
-      playerType: 'professional'
+      playerType: 'professional',
+      gender: 'female'
     }),
     Player.create({
       id: 'player-3',
       organizationId: 'fgl',
       displayName: 'Sam Okafor',
-      playerType: 'professional'
+      playerType: 'professional',
+      gender: 'male'
     }),
     Player.create({
       id: 'player-4',
       organizationId: 'fgl',
       displayName: 'Casey Nguyen',
-      playerType: 'professional'
+      playerType: 'professional',
+      gender: 'female'
     }),
     Player.create({
       id: 'player-5',
       organizationId: 'fgl',
       displayName: 'Morgan Lee',
       active: false,
-      playerType: 'professional'
+      playerType: 'professional',
+      gender: 'female'
     }),
     Player.create({
       id: 'player-6',
       organizationId: 'org-2',
       displayName: 'Avery Brooks',
       playerType: 'student',
-      schoolId: 'org-2'
+      schoolId: 'org-2',
+      gender: 'female'
+    })
+  ]),
+  teams: new InMemoryTeamRepository([
+    Team.create({
+      id: 'team-1',
+      organizationId: 'fgl',
+      name: 'Rivera & Blake',
+      malePlayerId: 'player-1',
+      femalePlayerId: 'player-2'
+    }),
+    Team.create({
+      id: 'team-2',
+      organizationId: 'fgl',
+      name: 'Okafor & Nguyen',
+      malePlayerId: 'player-3',
+      femalePlayerId: 'player-4'
     })
   ]),
   tournaments: new InMemoryTournamentRepository([
@@ -230,4 +261,25 @@ export const createLeagueRepositories = () => ({
     )
   ),
   registrations: new InMemoryTournamentRegistrationRepository()
+});
+
+export const createFantasyRepositories = () => ({
+  leagues: new InMemoryFantasyLeagueRepository([
+    FantasyLeague.create({
+      id: 'fantasy-league-1',
+      organizationId: 'fgl',
+      name: 'FLI Golf Fantasy',
+      participantIds: ['player-1', 'player-2']
+    })
+  ]),
+  teams: new InMemoryFantasyTeamRepository([
+    FantasyTeam.create({
+      id: 'fantasy-team-1',
+      fantasyLeagueId: 'fantasy-league-1',
+      ownerId: 'player-1',
+      name: "Rivera's Aces",
+      playerIds: ['player-3', 'player-4']
+    })
+  ]),
+  drafts: new InMemoryDraftRoomRepository()
 });

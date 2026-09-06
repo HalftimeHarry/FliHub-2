@@ -3,8 +3,64 @@ export interface PlayerDto {
   readonly displayName: string;
   readonly active: boolean;
   readonly playerType?: 'student' | 'professional';
+  readonly gender?: 'male' | 'female';
   readonly schoolId?: string;
   readonly professionalSince?: string;
+}
+
+export interface TeamDto {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly name: string;
+  readonly malePlayerId: string;
+  readonly femalePlayerId: string;
+}
+
+export interface FantasyLeagueDto {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly name: string;
+  readonly participantIds: readonly string[];
+}
+
+export interface FantasyTeamDto {
+  readonly id: string;
+  readonly fantasyLeagueId: string;
+  readonly ownerId: string;
+  readonly name: string;
+  readonly playerIds: readonly string[];
+}
+
+export interface DraftPoolPlayerDto {
+  readonly id: string;
+  readonly gender: 'male' | 'female';
+}
+
+export interface DraftPickDto {
+  readonly participantId: string;
+  readonly playerId: string;
+  readonly round: number;
+  readonly pickNumber: number;
+}
+
+export type DraftStatus = 'pending' | 'in_progress' | 'complete';
+
+export interface DraftRoomDto {
+  readonly id: string;
+  readonly fantasyLeagueId: string;
+  readonly organizationId: string;
+  readonly status: DraftStatus;
+  readonly locked: boolean;
+  readonly currentRound: number;
+  readonly rounds: number;
+  readonly maxPerGender: number;
+  readonly timerSeconds: number;
+  readonly secondsRemaining: number;
+  readonly onTheClockParticipantId?: string;
+  readonly nextParticipantId?: string;
+  readonly order: readonly string[];
+  readonly pool: readonly DraftPoolPlayerDto[];
+  readonly picks: readonly DraftPickDto[];
 }
 
 export type TournamentStatus =
@@ -551,6 +607,32 @@ const demoData: Record<string, unknown> = {
   ] satisfies readonly HoleDto[],
   '/league/tournament-registrations':
     [] satisfies readonly TournamentRegistrationDto[],
+  '/league/teams': [
+    {
+      id: 'team-1',
+      organizationId: 'fgl',
+      name: 'Rivera & Blake',
+      malePlayerId: 'player-1',
+      femalePlayerId: 'player-2'
+    }
+  ] satisfies readonly TeamDto[],
+  '/fantasy/leagues': [
+    {
+      id: 'fantasy-league-1',
+      organizationId: 'fgl',
+      name: 'FLI Golf Fantasy',
+      participantIds: ['player-1', 'player-2']
+    }
+  ] satisfies readonly FantasyLeagueDto[],
+  '/fantasy/teams': [
+    {
+      id: 'fantasy-team-1',
+      fantasyLeagueId: 'fantasy-league-1',
+      ownerId: 'player-1',
+      name: "Rivera's Aces",
+      playerIds: ['player-3', 'player-4']
+    }
+  ] satisfies readonly FantasyTeamDto[],
   '/business/departments': [
     { id: 'department-1', organizationId: 'fgl', name: 'Operations' },
     { id: 'department-2', organizationId: 'fgl', name: 'Marketing' },
@@ -641,6 +723,13 @@ export const fetchTournaments = () =>
 export const fetchCourses = () =>
   getJson<readonly CourseDto[]>('/league/courses');
 export const fetchHoles = () => getJson<readonly HoleDto[]>('/league/holes');
+export const fetchTeams = () => getJson<readonly TeamDto[]>('/league/teams');
+export const fetchFantasyLeagues = () =>
+  getJson<readonly FantasyLeagueDto[]>('/fantasy/leagues');
+export const fetchFantasyTeams = () =>
+  getJson<readonly FantasyTeamDto[]>('/fantasy/teams');
+export const fetchDrafts = () =>
+  getJson<readonly DraftRoomDto[]>('/fantasy/drafts');
 export const fetchTournamentRegistrations = () =>
   getJson<readonly TournamentRegistrationDto[]>(
     '/league/tournament-registrations'
@@ -719,6 +808,24 @@ export const addCourse = (input: {
   readonly holeCount?: number;
 }) => postJson<CourseDto>('/league/courses', input);
 
+export const addTeam = (input: {
+  readonly name: string;
+  readonly malePlayerId: string;
+  readonly femalePlayerId: string;
+}) => postJson<TeamDto>('/league/teams', input);
+
+export const addFantasyLeague = (input: {
+  readonly name: string;
+  readonly participantIds?: readonly string[];
+}) => postJson<FantasyLeagueDto>('/fantasy/leagues', input);
+
+export const addFantasyTeam = (input: {
+  readonly fantasyLeagueId: string;
+  readonly ownerId: string;
+  readonly name: string;
+  readonly playerIds?: readonly string[];
+}) => postJson<FantasyTeamDto>('/fantasy/teams', input);
+
 export const addHole = (input: {
   readonly courseId: string;
   readonly number?: number;
@@ -731,6 +838,7 @@ export interface LeagueSeedResult {
     readonly tournaments: readonly string[];
     readonly courses: readonly string[];
     readonly holes: number;
+    readonly teams: readonly string[];
   };
 }
 
@@ -739,4 +847,33 @@ export const seedLeague = (input: {
   readonly courses?: number;
   readonly holesPerCourse?: number;
   readonly tournamentCapacity?: number;
+  readonly teams?: number;
 }) => postJson<LeagueSeedResult>('/league/seed', input);
+
+export interface FantasySeedResult {
+  readonly organizationId: string;
+  readonly created: {
+    readonly leagues: readonly string[];
+    readonly teams: readonly string[];
+  };
+}
+
+export const seedFantasy = (input: {
+  readonly leagues?: number;
+  readonly teamsPerLeague?: number;
+}) => postJson<FantasySeedResult>('/fantasy/seed', input);
+
+export const createDraft = (input: {
+  readonly fantasyLeagueId: string;
+  readonly participantIds: readonly string[];
+  readonly poolPlayerIds: readonly string[];
+  readonly timerSeconds?: number;
+}) => postJson<DraftRoomDto>('/fantasy/drafts', input);
+
+export const openDraft = (draftId: string) =>
+  postJson<DraftRoomDto>(`/fantasy/drafts/${draftId}/open`, {});
+
+export const makeDraftPick = (
+  draftId: string,
+  input: { readonly participantId: string; readonly playerId: string }
+) => postJson<DraftRoomDto>(`/fantasy/drafts/${draftId}/pick`, input);

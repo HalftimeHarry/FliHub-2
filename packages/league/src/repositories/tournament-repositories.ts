@@ -3,6 +3,7 @@ import { InMemoryRepository } from '@flihub/persistence';
 import type { Course } from '../course.js';
 import type { Hole } from '../hole.js';
 import type { Player } from '../player.js';
+import type { Team } from '../team.js';
 import type { Tournament } from '../tournament.js';
 import type { TournamentRegistration } from '../tournament-registration.js';
 
@@ -28,6 +29,12 @@ export interface HoleRepository {
   save(hole: Hole): Promise<void>;
   listForCourse(courseId: Identifier): Promise<readonly Hole[]>;
   list(): Promise<readonly Hole[]>;
+}
+
+export interface TeamRepository {
+  findById(id: Identifier): Promise<Team | undefined>;
+  save(team: Team): Promise<void>;
+  list(): Promise<readonly Team[]>;
 }
 
 export interface TournamentRegistrationRepository {
@@ -62,6 +69,10 @@ export class InMemoryHoleRepository
       .sort((left, right) => left.number - right.number);
   }
 }
+
+export class InMemoryTeamRepository
+  extends InMemoryRepository<Team>
+  implements TeamRepository {}
 
 export class InMemoryTournamentRegistrationRepository implements TournamentRegistrationRepository {
   private readonly registrations = new Map<string, TournamentRegistration>();
