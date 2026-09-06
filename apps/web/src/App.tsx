@@ -27,6 +27,7 @@ import {
   SelectValue
 } from '@/components/ui/select.js';
 import {
+  createOrganizationAdmin,
   fetchDepartments,
   fetchOrganization,
   fetchPlayers,
@@ -36,6 +37,7 @@ import {
   getOrganizationCatalog,
   getOrganizationHeaders,
   registerCustomOrganization,
+  registerOrganizationDepartments,
   seedDefaultOrganizations,
   setActiveOrganization,
   setActiveUser,
@@ -67,9 +69,13 @@ const postJson = async (path: string, body: unknown): Promise<ApiResult> => {
 };
 
 const roleLabels: Record<UserDto['role'], string> = {
-  player: 'Player',
+  leader: 'Leader',
+  admin: 'Admin',
   business_staff: 'Business staff',
-  admin: 'Admin'
+  manager: 'Manager',
+  player: 'Player',
+  vendor: 'Vendor',
+  broadcaster: 'Broadcaster'
 };
 
 const organizationLabels: Record<string, string> = {
@@ -243,6 +249,26 @@ function OrganizationOverview({
               </Badge>
             ))}
           </div>
+        </CardContent>
+      )}
+      {setup !== undefined && setup.departments.length > 0 && (
+        <CardContent className="border-t pt-0">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Departments
+          </p>
+          <ul className="flex flex-col gap-2">
+            {setup.departments.map((department) => (
+              <li
+                key={department.id}
+                className="flex items-center justify-between rounded-lg bg-background/60 px-4 py-2"
+              >
+                <span className="font-medium">{department.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  {department.headName.trim() || 'No head assigned'}
+                </span>
+              </li>
+            ))}
+          </ul>
         </CardContent>
       )}
     </Card>
@@ -538,9 +564,13 @@ export function App() {
       : undefined;
 
   const showReimbursementForm =
-    currentUser?.role === 'business_staff' || currentUser?.role === 'admin';
+    currentUser?.role === 'business_staff' ||
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'leader';
   const showRegistrationForm =
-    currentUser?.role === 'player' || currentUser?.role === 'admin';
+    currentUser?.role === 'player' ||
+    currentUser?.role === 'admin' ||
+    currentUser?.role === 'leader';
 
   return (
     <ThemeProvider defaultTheme="dark" storageKey="flihub-ui-theme">
@@ -555,10 +585,31 @@ export function App() {
                   enabledComponents: setup.selectedComponents
                 });
 
+                // Bootstrap an admin so the new org workspace is usable.
+                const admin = createOrganizationAdmin(
+                  customOrganization.id,
+                  `${setup.organizationName} Admin`
+                );
+
+                // Persist the departments (and heads) captured in the wizard.
+                registerOrganizationDepartments(
+                  customOrganization.id,
+                  setup.departments.map((department) => ({
+                    name: department.name,
+                    headName: department.headName
+                  }))
+                );
+
                 setOrganizations(getOrganizationCatalog());
                 setOrganizationSetup(setup);
+                setUsers((current) => [
+                  ...current.filter((user) => user.id !== admin.id),
+                  admin
+                ]);
                 setActiveOrganization(customOrganization.id);
                 setSelectedOrganizationId(customOrganization.id);
+                setActiveUser(admin.id);
+                setCurrentUserId(admin.id);
                 setActiveView('home');
               }}
             />

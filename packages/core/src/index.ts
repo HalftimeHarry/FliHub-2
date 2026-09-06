@@ -7,3 +7,12 @@ export {
   type OrganizationComponent,
   type OrganizationType
 } from './organization.js';
+export {
+  hasPermission,
+  ROLE_LABELS,
+  ROLE_PERMISSIONS,
+  type Action,
+  type Permission,
+  type Scope,
+  type UserRole
+} from './rbac.js';

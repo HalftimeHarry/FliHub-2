@@ -115,6 +115,15 @@ const ensurePlayerCanRegister: PipelineStage<
     );
   }
 
+  if (!context.tournament.isRegistrationOpen()) {
+    return fail(
+      new DomainError(
+        'league.registration.tournament_not_open',
+        'Registration is only open while the tournament is scheduled.'
+      )
+    );
+  }
+
   return succeed(context);
 };
 

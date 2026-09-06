@@ -4,6 +4,7 @@ import { createTournamentRegistrationWorkflow } from '@flihub/league';
 import { mockUsers } from './mock-users.js';
 import {
   createOrganizationContextMiddleware,
+  requirePermission,
   type OrganizationRequest
 } from './organization-context.js';
 import {
@@ -281,13 +282,21 @@ const handleRegisterPlayerForTournament = async (
   res.status(201).json(result.value);
 };
 
-app.post('/business/reimbursement-claims', (req, res) => {
-  void handleSubmitReimbursementClaim(req, res);
-});
+app.post(
+  '/business/reimbursement-claims',
+  requirePermission('business', 'write'),
+  (req, res) => {
+    void handleSubmitReimbursementClaim(req, res);
+  }
+);
 
-app.post('/league/tournament-registrations', (req, res) => {
-  void handleRegisterPlayerForTournament(req, res);
-});
+app.post(
+  '/league/tournament-registrations',
+  requirePermission('tournaments', 'register'),
+  (req, res) => {
+    void handleRegisterPlayerForTournament(req, res);
+  }
+);
 
 const port = Number(process.env.PORT ?? 3000);
 

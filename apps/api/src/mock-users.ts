@@ -1,4 +1,6 @@
-export type UserRole = 'player' | 'business_staff' | 'admin';
+import type { UserRole } from '@flihub/core';
+
+export type { UserRole };
 
 export interface MockUser {
   readonly id: string;
@@ -40,6 +42,24 @@ export const mockUsers: readonly MockUser[] = [
     name: 'Morgan Reyes',
     organizationId: 'fgl',
     role: 'admin'
+  },
+  {
+    id: 'leader-1',
+    name: 'Dakota Shaw',
+    organizationId: 'fgl',
+    role: 'leader'
+  },
+  {
+    id: 'manager-1',
+    name: 'Jordan Ellis',
+    organizationId: 'fgl',
+    role: 'manager'
+  },
+  {
+    id: 'broadcaster-1',
+    name: 'Skyler Ames',
+    organizationId: 'fgl',
+    role: 'broadcaster'
   },
   {
     id: 'staff-3',

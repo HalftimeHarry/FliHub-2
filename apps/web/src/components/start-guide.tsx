@@ -28,11 +28,18 @@ import { seedDefaultOrganizations, type OrganizationDto } from '@/lib/api.js';
 
 export type TemplateId = 'fli-golf' | 'fli-basic' | 'custom';
 
+export interface DepartmentSetup {
+  readonly id: string;
+  readonly name: string;
+  readonly headName: string;
+}
+
 export interface OrganizationSetup {
   readonly organizationName: string;
   readonly template: TemplateId;
   readonly templateName: string;
   readonly selectedComponents: readonly string[];
+  readonly departments: readonly DepartmentSetup[];
 }
 
 interface ComponentOption {
@@ -165,11 +172,15 @@ export function StartGuide({
 }: {
   readonly onRegistered?: (setup: OrganizationSetup) => void;
 }) {
+  const [step, setStep] = useState(0);
   const [template, setTemplate] = useState<TemplateId>('fli-basic');
   const [organizationName, setOrganizationName] = useState('');
   const [selectedComponents, setSelectedComponents] = useState<
     readonly string[]
   >(templateDetails['fli-basic'].selected);
+  const [departments, setDepartments] = useState<readonly DepartmentSetup[]>([
+    { id: 'dept-1', name: '', headName: '' }
+  ]);
   const [registered, setRegistered] = useState(false);
   const [seededOrganizations, setSeededOrganizations] = useState<
     readonly OrganizationDto[]
@@ -182,6 +193,13 @@ export function StartGuide({
   const details = templateDetails[template];
   const TemplateIcon = templateIcons[template];
 
+  const steps = [
+    { id: 0, label: 'Template' },
+    { id: 1, label: 'Components' },
+    { id: 2, label: 'Departments' },
+    { id: 3, label: 'Review' }
+  ] as const;
+
   const chooseTemplate = (nextTemplate: TemplateId) => {
     setTemplate(nextTemplate);
     setSelectedComponents(templateDetails[nextTemplate].selected);
@@ -193,6 +211,33 @@ export function StartGuide({
       current.includes(componentId)
         ? current.filter((id) => id !== componentId)
         : [...current, componentId]
+    );
+    setRegistered(false);
+  };
+
+  const addDepartment = () => {
+    setDepartments((current) => [
+      ...current,
+      { id: `dept-${Date.now().toString(36)}`, name: '', headName: '' }
+    ]);
+  };
+
+  const updateDepartment = (
+    id: string,
+    field: 'name' | 'headName',
+    value: string
+  ) => {
+    setDepartments((current) =>
+      current.map((department) =>
+        department.id === id ? { ...department, [field]: value } : department
+      )
+    );
+    setRegistered(false);
+  };
+
+  const removeDepartment = (id: string) => {
+    setDepartments((current) =>
+      current.filter((department) => department.id !== id)
     );
     setRegistered(false);
   };
@@ -225,6 +270,28 @@ export function StartGuide({
     setRegistered(false);
   };
 
+  const validDepartments = departments.filter(
+    (department) => department.name.trim().length >= 2
+  );
+
+  const canContinue =
+    step === 0
+      ? organizationName.trim().length >= 2
+      : step === 1
+        ? selectedComponents.length > 0
+        : true;
+
+  const finishRegistration = () => {
+    setRegistered(true);
+    onRegistered?.({
+      organizationName: organizationName.trim(),
+      template,
+      templateName: details.name,
+      selectedComponents,
+      departments: validDepartments
+    });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -234,8 +301,8 @@ export function StartGuide({
         </h1>
         <div className="mt-2 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <p className="max-w-3xl text-sm text-muted-foreground">
-            Choose a starting format, review the included components, and
-            register your organization.
+            Walk through the setup wizard: pick a starting format, choose
+            components, define departments and their heads, then register.
           </p>
           <Button
             type="button"
@@ -300,167 +367,381 @@ export function StartGuide({
         </Card>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {(Object.keys(templateDetails) as TemplateId[]).map((templateId) => {
-          const option = templateDetails[templateId];
-          const Icon = templateIcons[templateId];
-          const active = template === templateId;
-          return (
+      <ol className="flex flex-wrap items-center gap-2">
+        {steps.map((wizardStep, index) => (
+          <li key={wizardStep.id} className="flex items-center gap-2">
             <button
-              key={templateId}
               type="button"
-              className={`rounded-xl border p-5 text-left transition-colors hover:border-primary/60 ${
-                active ? option.tone : 'bg-card'
-              }`}
               onClick={() => {
-                chooseTemplate(templateId);
+                setStep(index);
               }}
-              aria-pressed={active}
+              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                step === index
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-card text-muted-foreground'
+              }`}
             >
-              <div className="flex items-start justify-between gap-3">
-                <span className="flex size-10 items-center justify-center rounded-lg bg-background/70">
-                  <Icon className="size-5" />
-                </span>
-                {active && <Badge>Selected</Badge>}
-              </div>
-              <h2 className="mt-5 font-semibold">{option.name}</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {option.description}
-              </p>
+              <span
+                className={`flex size-5 items-center justify-center rounded-full text-xs ${
+                  step > index
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-muted text-foreground'
+                }`}
+              >
+                {step > index ? <Check className="size-3" /> : index + 1}
+              </span>
+              {wizardStep.label}
             </button>
-          );
-        })}
-      </div>
+            {index < steps.length - 1 && (
+              <span className="text-muted-foreground">→</span>
+            )}
+          </li>
+        ))}
+      </ol>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <TemplateIcon className="size-5 text-primary" />
-                {details.name}
-              </CardTitle>
-              <CardDescription className="mt-2">{details.note}</CardDescription>
-            </div>
-            <Badge variant="outline">{details.badge}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="organization-name">Organization name</Label>
-            <Input
-              id="organization-name"
-              placeholder="Example School or FLI Golf"
-              value={organizationName}
-              onChange={(event) => {
-                setOrganizationName(event.target.value);
-                setRegistered(false);
-              }}
-            />
+      {step === 0 && (
+        <div className="flex flex-col gap-6">
+          <div className="grid gap-4 lg:grid-cols-3">
+            {(Object.keys(templateDetails) as TemplateId[]).map((templateId) => {
+              const option = templateDetails[templateId];
+              const Icon = templateIcons[templateId];
+              const active = template === templateId;
+              return (
+                <button
+                  key={templateId}
+                  type="button"
+                  className={`rounded-xl border p-5 text-left transition-colors hover:border-primary/60 ${
+                    active ? option.tone : 'bg-card'
+                  }`}
+                  onClick={() => {
+                    chooseTemplate(templateId);
+                  }}
+                  aria-pressed={active}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex size-10 items-center justify-center rounded-lg bg-background/70">
+                      <Icon className="size-5" />
+                    </span>
+                    {active && <Badge>Selected</Badge>}
+                  </div>
+                  <h2 className="mt-5 font-semibold">{option.name}</h2>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {option.description}
+                  </p>
+                </button>
+              );
+            })}
           </div>
 
-          <div>
+          <Card>
+            <CardContent className="flex flex-col gap-2 pt-6">
+              <Label htmlFor="organization-name">Organization name</Label>
+              <Input
+                id="organization-name"
+                placeholder="Example School or FLI Golf"
+                value={organizationName}
+                onChange={(event) => {
+                  setOrganizationName(event.target.value);
+                  setRegistered(false);
+                }}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {step === 1 && (
+        <Card>
+          <CardHeader>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <h3 className="font-medium">Included components</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {template === 'custom'
-                    ? 'Toggle components to shape your starting instance.'
-                    : 'Included components are highlighted. Components marked Off are not enabled in this preset.'}
-                </p>
+                <CardTitle className="flex items-center gap-2">
+                  <TemplateIcon className="size-5 text-primary" />
+                  {details.name}
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  {details.note}
+                </CardDescription>
+              </div>
+              <Badge variant="outline">{details.badge}</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-medium">Included components</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {template === 'custom'
+                      ? 'Toggle components to shape your starting instance.'
+                      : 'Included components are highlighted. Components marked Off are not enabled in this preset.'}
+                  </p>
+                </div>
+                <Badge variant="outline">
+                  {selectedComponents.length} selected
+                </Badge>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {componentOptions.map((component) => {
+                  const Icon = component.icon;
+                  const selected = selectedComponents.includes(component.id);
+                  return (
+                    <label
+                      key={component.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
+                        selected ? component.tone : 'bg-muted/30 opacity-70'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        disabled={template !== 'custom'}
+                        onChange={() => {
+                          toggleComponent(component.id);
+                        }}
+                        className="mt-1 size-4 accent-current"
+                      />
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-background/70">
+                        <Icon className="size-4" />
+                      </span>
+                      <span>
+                        <span className="flex flex-wrap items-center gap-2 font-medium">
+                          {component.label}
+                          <Badge
+                            variant={selected ? 'default' : 'outline'}
+                            className={selected ? 'bg-emerald-600' : ''}
+                          >
+                            {selected ? (
+                              <>
+                                <Check />
+                                Included
+                              </>
+                            ) : (
+                              <>
+                                <CircleOff />
+                                Off
+                              </>
+                            )}
+                          </Badge>
+                        </span>
+                        <span className="mt-1 block text-sm text-muted-foreground">
+                          {component.description}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 2 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="size-5 text-primary" />
+                  Departments &amp; heads
+                </CardTitle>
+                <CardDescription className="mt-2">
+                  List the departments in your organization and who leads each.
+                  These become the starting structure for your Business
+                  workspace.
+                </CardDescription>
               </div>
               <Badge variant="outline">
-                {selectedComponents.length} selected
+                {validDepartments.length} department
+                {validDepartments.length === 1 ? '' : 's'}
               </Badge>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {componentOptions.map((component) => {
-                const Icon = component.icon;
-                const selected = selectedComponents.includes(component.id);
-                return (
-                  <label
-                    key={component.id}
-                    className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors ${
-                      selected ? component.tone : 'bg-muted/30 opacity-70'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      disabled={template !== 'custom'}
-                      onChange={() => {
-                        toggleComponent(component.id);
-                      }}
-                      className="mt-1 size-4 accent-current"
-                    />
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-background/70">
-                      <Icon className="size-4" />
-                    </span>
-                    <span>
-                      <span className="flex flex-wrap items-center gap-2 font-medium">
-                        {component.label}
-                        <Badge
-                          variant={selected ? 'default' : 'outline'}
-                          className={selected ? 'bg-emerald-600' : ''}
-                        >
-                          {selected ? (
-                            <>
-                              <Check />
-                              Included
-                            </>
-                          ) : (
-                            <>
-                              <CircleOff />
-                              Off
-                            </>
-                          )}
-                        </Badge>
-                      </span>
-                      <span className="mt-1 block text-sm text-muted-foreground">
-                        {component.description}
-                      </span>
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex flex-col items-start justify-between gap-4 border-t pt-5 sm:flex-row sm:items-center">
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {departments.map((department, index) => (
+              <div
+                key={department.id}
+                className="grid gap-3 rounded-lg border bg-background/60 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+              >
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={`dept-name-${department.id}`}>
+                    Department {index + 1}
+                  </Label>
+                  <Input
+                    id={`dept-name-${department.id}`}
+                    placeholder="e.g. Operations"
+                    value={department.name}
+                    onChange={(event) => {
+                      updateDepartment(
+                        department.id,
+                        'name',
+                        event.target.value
+                      );
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor={`dept-head-${department.id}`}>Head</Label>
+                  <Input
+                    id={`dept-head-${department.id}`}
+                    placeholder="e.g. Alex Rivera"
+                    value={department.headName}
+                    onChange={(event) => {
+                      updateDepartment(
+                        department.id,
+                        'headName',
+                        event.target.value
+                      );
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={departments.length === 1}
+                  onClick={() => {
+                    removeDepartment(department.id);
+                  }}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={addDepartment}
+            >
+              + Add department
+            </Button>
             <p className="text-sm text-muted-foreground">
-              {selectedComponents.length === 0
-                ? 'Select at least one component to continue.'
-                : `${selectedComponents.length.toString()} components ready for registration.`}
+              Departments need a name of at least two characters. Heads are
+              optional but recommended for seeding realistic workflows.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === 3 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Check className="size-5 text-primary" />
+              Review &amp; register
+            </CardTitle>
+            <CardDescription>
+              Confirm the structure below, then register your organization.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-muted/40 p-4">
+                <p className="text-xs text-muted-foreground">Organization</p>
+                <p className="mt-1 font-medium">
+                  {organizationName.trim() || '—'}
+                </p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-4">
+                <p className="text-xs text-muted-foreground">Template</p>
+                <p className="mt-1 font-medium">{details.name}</p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-medium">Components</h3>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {selectedComponents.map((componentId) => (
+                  <Badge key={componentId} variant="secondary">
+                    {componentOptions.find(
+                      (option) => option.id === componentId
+                    )?.label ?? componentId}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-medium">
+                Departments ({validDepartments.length})
+              </h3>
+              {validDepartments.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No departments defined yet. Go back to add some, or register
+                  and add them later.
+                </p>
+              ) : (
+                <ul className="mt-2 flex flex-col gap-2">
+                  {validDepartments.map((department) => (
+                    <li
+                      key={department.id}
+                      className="flex items-center justify-between rounded-lg border bg-background/60 px-4 py-2"
+                    >
+                      <span className="font-medium">{department.name}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {department.headName.trim() || 'No head assigned'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {registered && (
+              <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
+                {organizationName.trim()} is registered with{' '}
+                {selectedComponents.length} components and{' '}
+                {validDepartments.length} departments.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex flex-col items-start justify-between gap-4 border-t pt-5 sm:flex-row sm:items-center">
+        <p className="text-sm text-muted-foreground">
+          Step {step + 1} of {steps.length} · {steps[step].label}
+        </p>
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={step === 0}
+            onClick={() => {
+              setStep((current) => Math.max(0, current - 1));
+            }}
+          >
+            Back
+          </Button>
+          {step < steps.length - 1 ? (
+            <Button
+              type="button"
+              disabled={!canContinue}
+              onClick={() => {
+                setStep((current) =>
+                  Math.min(steps.length - 1, current + 1)
+                );
+              }}
+            >
+              Continue
+            </Button>
+          ) : (
             <Button
               type="button"
               disabled={
                 organizationName.trim().length < 2 ||
                 selectedComponents.length === 0
               }
-              onClick={() => {
-                setRegistered(true);
-                onRegistered?.({
-                  organizationName: organizationName.trim(),
-                  template,
-                  templateName: details.name,
-                  selectedComponents
-                });
-              }}
+              onClick={finishRegistration}
             >
               <Check />
               Register organization
             </Button>
-          </div>
-          {registered && (
-            <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-300">
-              {organizationName.trim()} is configured with{' '}
-              {selectedComponents.length} components using the {details.name}{' '}
-              starting point.
-            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

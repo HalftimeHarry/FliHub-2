@@ -1,12 +1,19 @@
 import { DomainError, Identifier } from '@flihub/core';
 
+export type TournamentStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
 export class Tournament {
   private constructor(
     public readonly id: Identifier,
     public readonly organizationId: Identifier,
     public readonly seasonId: Identifier,
     public readonly name: string,
-    public readonly capacity: number
+    public readonly capacity: number,
+    public readonly status: TournamentStatus
   ) {}
 
   public static create(input: {
@@ -15,6 +22,7 @@ export class Tournament {
     seasonId: string;
     name: string;
     capacity: number;
+    status?: TournamentStatus;
   }): Tournament {
     const name = input.name.trim();
 
@@ -37,11 +45,16 @@ export class Tournament {
       Identifier.create(input.organizationId, 'organization id'),
       Identifier.create(input.seasonId, 'season id'),
       name,
-      input.capacity
+      input.capacity,
+      input.status ?? 'scheduled'
     );
   }
 
   public hasCapacity(currentRegistrationCount: number): boolean {
     return currentRegistrationCount < this.capacity;
+  }
+
+  public isRegistrationOpen(): boolean {
+    return this.status === 'scheduled';
   }
 }

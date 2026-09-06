@@ -25,6 +25,7 @@ export interface DepartmentDto {
   readonly id: string;
   readonly organizationId: string;
   readonly name: string;
+  readonly headName?: string;
 }
 
 export interface ProjectDto {
@@ -43,7 +44,14 @@ export interface ReimbursementClaimDto {
   readonly status: string;
 }
 
-export type UserRole = 'player' | 'business_staff' | 'admin';
+export type UserRole =
+  | 'leader'
+  | 'admin'
+  | 'business_staff'
+  | 'manager'
+  | 'player'
+  | 'vendor'
+  | 'broadcaster';
 
 export interface UserDto {
   readonly id: string;
@@ -64,6 +72,8 @@ export interface OrganizationDto {
 const userStorageKey = 'flihub-active-user';
 const organizationStorageKey = 'flihub-active-organization';
 const customOrganizationsStorageKey = 'flihub-custom-organizations';
+const customUsersStorageKey = 'flihub-custom-users';
+const customDepartmentsStorageKey = 'flihub-custom-departments';
 
 const getStorage = (): Storage | undefined => {
   try {
@@ -169,6 +179,159 @@ export const registerCustomOrganization = (
 
   return nextOrganization;
 };
+
+const isUserDto = (value: unknown): value is UserDto =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id' in value &&
+  typeof value.id === 'string' &&
+  'name' in value &&
+  typeof value.name === 'string' &&
+  'organizationId' in value &&
+  typeof value.organizationId === 'string' &&
+  'role' in value &&
+  typeof value.role === 'string';
+
+const readCustomUsers = (
+  storage: Storage | undefined = getStorage()
+): readonly UserDto[] => {
+  if (storage === undefined) {
+    return [];
+  }
+
+  try {
+    const rawValue = storage.getItem(customUsersStorageKey);
+    if (rawValue === null) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue.filter(isUserDto);
+  } catch {
+    return [];
+  }
+};
+
+export const getUserCatalog = (
+  storage: Storage | undefined = getStorage()
+): readonly UserDto[] => [...demoUsers, ...readCustomUsers(storage)];
+
+/**
+ * Bootstrap an owner/admin for a freshly registered organization so the new
+ * workspace immediately has someone who can act (adapted from the
+ * FLI-Golf/FliHub "org must have an owner" onboarding concept).
+ */
+export const createOrganizationAdmin = (
+  organizationId: string,
+  name: string,
+  storage: Storage | undefined = getStorage()
+): UserDto => {
+  const trimmedName = name.trim() || 'Organization Admin';
+  const nextUser: UserDto = {
+    id: `${organizationId}-admin`,
+    name: trimmedName,
+    organizationId,
+    role: 'admin'
+  };
+
+  const customUsers = readCustomUsers(storage);
+  const merged = customUsers.some((existing) => existing.id === nextUser.id)
+    ? customUsers.map((existing) =>
+        existing.id === nextUser.id ? nextUser : existing
+      )
+    : [...customUsers, nextUser];
+
+  if (storage !== undefined) {
+    storage.setItem(customUsersStorageKey, JSON.stringify(merged));
+  }
+
+  return nextUser;
+};
+
+const isDepartmentDto = (value: unknown): value is DepartmentDto =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id' in value &&
+  typeof value.id === 'string' &&
+  'organizationId' in value &&
+  typeof value.organizationId === 'string' &&
+  'name' in value &&
+  typeof value.name === 'string';
+
+const readCustomDepartments = (
+  storage: Storage | undefined = getStorage()
+): readonly DepartmentDto[] => {
+  if (storage === undefined) {
+    return [];
+  }
+
+  try {
+    const rawValue = storage.getItem(customDepartmentsStorageKey);
+    if (rawValue === null) {
+      return [];
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue.filter(isDepartmentDto);
+  } catch {
+    return [];
+  }
+};
+
+/**
+ * Persist the departments (and their heads) captured during organization
+ * setup so the workspace immediately reflects the org's structure.
+ */
+export const registerOrganizationDepartments = (
+  organizationId: string,
+  departments: readonly { readonly name: string; readonly headName: string }[],
+  storage: Storage | undefined = getStorage()
+): readonly DepartmentDto[] => {
+  const nextDepartments: DepartmentDto[] = departments.map((department) => {
+    const slug =
+      department.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'department';
+
+    return {
+      id: `${organizationId}-${slug}`,
+      organizationId,
+      name: department.name.trim(),
+      headName: department.headName.trim()
+    };
+  });
+
+  const existing = readCustomDepartments(storage);
+  const kept = existing.filter(
+    (department) => department.organizationId !== organizationId
+  );
+
+  if (storage !== undefined) {
+    storage.setItem(
+      customDepartmentsStorageKey,
+      JSON.stringify([...kept, ...nextDepartments])
+    );
+  }
+
+  return nextDepartments;
+};
+
+export const getOrganizationDepartments = (
+  organizationId: string,
+  storage: Storage | undefined = getStorage()
+): readonly DepartmentDto[] =>
+  readCustomDepartments(storage).filter(
+    (department) => department.organizationId === organizationId
+  );
 
 const demoUsers: readonly UserDto[] = [
   {
@@ -333,7 +496,8 @@ export const setActiveOrganization = (organizationId: string): void => {
 };
 
 const getDemoJson = (path: string): unknown => {
-  const activeUser = demoUsers.find(
+  const allUsers = getUserCatalog();
+  const activeUser = allUsers.find(
     (user) => user.id === window.localStorage.getItem(userStorageKey)
   );
   const organizationId =
@@ -342,10 +506,10 @@ const getDemoJson = (path: string): unknown => {
     'fgl';
 
   if (path === '/users') {
-    return demoUsers;
+    return allUsers;
   }
   if (path === '/organization/users') {
-    return demoUsers.filter((user) => user.organizationId === organizationId);
+    return allUsers.filter((user) => user.organizationId === organizationId);
   }
   if (path === '/organization') {
     return (
@@ -353,6 +517,13 @@ const getDemoJson = (path: string): unknown => {
         (organization) => organization.id === organizationId
       ) ?? getOrganizationCatalog()[0]
     );
+  }
+
+  if (path === '/business/departments') {
+    const customDepartments = getOrganizationDepartments(organizationId);
+    if (customDepartments.length > 0) {
+      return customDepartments;
+    }
   }
 
   return demoData[path] ?? [];
@@ -387,7 +558,14 @@ export const fetchProjects = () =>
   getJson<readonly ProjectDto[]>('/business/projects');
 export const fetchReimbursementClaims = () =>
   getJson<readonly ReimbursementClaimDto[]>('/business/reimbursement-claims');
-export const fetchUsers = () => getJson<readonly UserDto[]>('/users');
+export const fetchUsers = async (): Promise<readonly UserDto[]> => {
+  const fetched = await getJson<readonly UserDto[]>('/users');
+  const customUsers = readCustomUsers();
+  const missing = customUsers.filter(
+    (custom) => !fetched.some((user) => user.id === custom.id)
+  );
+  return [...fetched, ...missing];
+};
 export const fetchOrganizationUsers = () =>
   getJson<readonly UserDto[]>('/organization/users');
 export const fetchOrganization = () =>
