@@ -49,6 +49,9 @@ const defaultProperties: Record<string, readonly string[]> = {
   Organization: ['id', 'name', 'slug', 'type', 'paysTeams', 'status'],
   Identifier: ['value', 'entity type', 'validation rules'],
   Money: ['amountMinorUnits', 'currency'],
+  UserProfile: ['id', 'displayName', 'email', 'roles', 'tags', 'bio'],
+  LeagueMembership: ['userId', 'leagueId', 'role', 'joinedAt', 'status'],
+  LeagueInvite: ['leagueId', 'userId', 'status', 'expiresAt', 'respondedAt'],
   League: ['id', 'organizationId', 'name', 'format', 'paysTeams'],
   Season: ['id', 'leagueId', 'name', 'startDate', 'endDate', 'status'],
   Tournament: [
@@ -60,7 +63,15 @@ const defaultProperties: Record<string, readonly string[]> = {
     'registrationDeadline',
     'status'
   ],
-  Player: ['id', 'displayName', 'active', 'organizationId'],
+  Player: [
+    'id',
+    'displayName',
+    'organizationId',
+    'playerType',
+    'schoolId',
+    'professionalSince',
+    'active'
+  ],
   TournamentRegistration: [
     'id',
     'tournamentId',
@@ -354,7 +365,7 @@ function ObjectBrowser() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="core">
-          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-5">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 sm:grid-cols-6">
             <TabsTrigger
               value="core"
               className="bg-sky-500/10 text-sky-700 hover:bg-sky-500/20 data-[state=active]:bg-sky-500 data-[state=active]:text-white dark:text-sky-300 dark:data-[state=active]:text-white"
@@ -375,6 +386,13 @@ function ObjectBrowser() {
             >
               <BriefcaseBusiness />
               Business
+            </TabsTrigger>
+            <TabsTrigger
+              value="users"
+              className="bg-cyan-500/10 text-cyan-700 hover:bg-cyan-500/20 data-[state=active]:bg-cyan-500 data-[state=active]:text-white dark:text-cyan-300 dark:data-[state=active]:text-white"
+            >
+              <Users />
+              Users
             </TabsTrigger>
             <TabsTrigger
               value="operations"
@@ -422,6 +440,12 @@ function ObjectBrowser() {
                 'TaskExpense'
               ]}
               tone="business"
+            />
+          </TabsContent>
+          <TabsContent value="users">
+            <ObjectBrowserGroup
+              names={['UserProfile', 'LeagueMembership', 'LeagueInvite']}
+              tone="support"
             />
           </TabsContent>
           <TabsContent value="operations">

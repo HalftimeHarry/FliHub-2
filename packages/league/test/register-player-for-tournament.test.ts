@@ -9,6 +9,30 @@ import {
 } from '@flihub/league';
 
 describe('createTournamentRegistrationWorkflow', () => {
+  it('promotes a student without changing their player identity', () => {
+    const student = Player.create({
+      id: 'student-1',
+      organizationId: 'school-1',
+      displayName: 'Future Pro',
+      playerType: 'student',
+      schoolId: 'school-1'
+    });
+
+    const professional = student.promoteToProfessional(
+      new Date('2030-06-01T00:00:00.000Z')
+    );
+
+    expect(professional.id.value).toBe(student.id.value);
+    expect(professional.organizationId.value).toBe(
+      student.organizationId.value
+    );
+    expect(professional.playerType).toBe('professional');
+    expect(professional.schoolId?.value).toBe('school-1');
+    expect(professional.professionalSince?.toISOString()).toBe(
+      '2030-06-01T00:00:00.000Z'
+    );
+  });
+
   it('registers an active player when capacity is available', async () => {
     const workflow = createTournamentRegistrationWorkflow({
       players: new InMemoryPlayerRepository([

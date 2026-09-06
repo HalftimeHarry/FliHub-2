@@ -1,3 +1,4 @@
+import { Organization } from '@flihub/core';
 import {
   Department,
   InMemoryDepartmentRepository,
@@ -12,6 +13,66 @@ import {
   Player,
   Tournament
 } from '@flihub/league';
+
+const defaultOrganizationSeeds = [
+  Organization.create({
+    id: 'fgl',
+    name: 'FLI Golf',
+    type: 'operator',
+    paysTeams: true,
+    enabledComponents: [
+      'league-operations',
+      'fli-golf-format',
+      'fantasy',
+      'payouts',
+      'teams-and-rosters',
+      'courses-and-scoring',
+      'sponsorship',
+      'community-content'
+    ]
+  }),
+  Organization.create({
+    id: 'org-2',
+    name: 'Example School',
+    type: 'school',
+    paysTeams: false
+  }),
+  Organization.create({
+    id: 'org-custom',
+    name: 'Custom Demo League',
+    type: 'school',
+    paysTeams: false,
+    enabledComponents: [
+      'league-operations',
+      'fli-golf-format',
+      'teams-and-rosters',
+      'courses-and-scoring',
+      'sponsorship'
+    ]
+  })
+] as const;
+
+export const organizationSeeds: Organization[] = [
+  defaultOrganizationSeeds[0],
+  defaultOrganizationSeeds[1]
+];
+
+export const seedDefaultOrganizations = (): readonly Organization[] => {
+  for (const organization of defaultOrganizationSeeds) {
+    if (!organizationSeeds.some((seed) => seed.id.equals(organization.id))) {
+      organizationSeeds.push(organization);
+    }
+  }
+
+  return organizationSeeds;
+};
+
+export const findOrganization = (
+  organizationId: string
+): Organization | undefined =>
+  organizationSeeds.find(
+    (organization) => organization.id.value === organizationId
+  );
 
 export const createBusinessRepositories = () => ({
   departments: new InMemoryDepartmentRepository([
@@ -66,33 +127,40 @@ export const createLeagueRepositories = () => ({
     Player.create({
       id: 'player-1',
       organizationId: 'fgl',
-      displayName: 'Alex Rivera'
+      displayName: 'Alex Rivera',
+      playerType: 'professional'
     }),
     Player.create({
       id: 'player-2',
       organizationId: 'fgl',
-      displayName: 'Jordan Blake'
+      displayName: 'Jordan Blake',
+      playerType: 'professional'
     }),
     Player.create({
       id: 'player-3',
       organizationId: 'fgl',
-      displayName: 'Sam Okafor'
+      displayName: 'Sam Okafor',
+      playerType: 'professional'
     }),
     Player.create({
       id: 'player-4',
       organizationId: 'fgl',
-      displayName: 'Casey Nguyen'
+      displayName: 'Casey Nguyen',
+      playerType: 'professional'
     }),
     Player.create({
       id: 'player-5',
       organizationId: 'fgl',
       displayName: 'Morgan Lee',
-      active: false
+      active: false,
+      playerType: 'professional'
     }),
     Player.create({
       id: 'player-6',
       organizationId: 'org-2',
-      displayName: 'Avery Brooks'
+      displayName: 'Avery Brooks',
+      playerType: 'student',
+      schoolId: 'org-2'
     })
   ]),
   tournaments: new InMemoryTournamentRepository([

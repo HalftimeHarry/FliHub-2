@@ -22,3 +22,7 @@ Players, teams, memberships, registrations, eligibility, rankings, schedules, sc
 ## Registration proof of concept
 
 The tournament registration workflow demonstrates boundary validation, repository interfaces, player resolution, activity checks, tournament capacity checks, registration creation, and predictable domain failures.
+
+## Player progression
+
+Student and professional participants share one `Player` identity. A school player can be promoted to professional without changing their ID, organization relationship, tournament registrations, standings history, or team history. The player records the current `playerType`, optional `schoolId`, and `professionalSince` date so the system can show both the development path and the current competitive status.

@@ -3,12 +3,30 @@ import { Identifier } from './identifier.js';
 
 export type OrganizationType = 'operator' | 'school';
 
+export type OrganizationComponent =
+  | 'league-operations'
+  | 'fli-golf-format'
+  | 'fantasy'
+  | 'payouts'
+  | 'teams-and-rosters'
+  | 'courses-and-scoring'
+  | 'sponsorship'
+  | 'community-content';
+
+const basicComponents: readonly OrganizationComponent[] = [
+  'league-operations',
+  'fli-golf-format',
+  'teams-and-rosters',
+  'courses-and-scoring'
+];
+
 export class Organization {
   private constructor(
     public readonly id: Identifier,
     public readonly name: string,
     public readonly type: OrganizationType,
-    public readonly paysTeams: boolean
+    public readonly paysTeams: boolean,
+    public readonly enabledComponents: readonly OrganizationComponent[]
   ) {}
 
   public static create(input: {
@@ -16,6 +34,7 @@ export class Organization {
     name: string;
     type?: OrganizationType;
     paysTeams?: boolean;
+    enabledComponents?: readonly OrganizationComponent[];
   }): Organization {
     const name = input.name.trim();
 
@@ -30,7 +49,12 @@ export class Organization {
       Identifier.create(input.id, 'organization id'),
       name,
       input.type ?? 'school',
-      input.paysTeams ?? false
+      input.paysTeams ?? false,
+      [...(input.enabledComponents ?? basicComponents)]
     );
+  }
+
+  public hasComponent(component: OrganizationComponent): boolean {
+    return this.enabledComponents.includes(component);
   }
 }

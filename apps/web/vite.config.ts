@@ -14,7 +14,8 @@ export default defineConfig({
     proxy: {
       '/business': 'http://localhost:3000',
       '/league': 'http://localhost:3000',
-      '/users': 'http://localhost:3000'
+      '/users': 'http://localhost:3000',
+      '/organization': 'http://localhost:3000'
     }
   }
 });

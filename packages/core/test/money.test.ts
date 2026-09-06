@@ -23,6 +23,18 @@ describe('core domain objects', () => {
     expect(organization.paysTeams).toBe(true);
   });
 
+  it('uses basic league components when no setup is supplied', () => {
+    const organization = Organization.create({
+      id: 'school-1',
+      name: 'Example School'
+    });
+
+    expect(organization.hasComponent('league-operations')).toBe(true);
+    expect(organization.hasComponent('courses-and-scoring')).toBe(true);
+    expect(organization.hasComponent('fantasy')).toBe(false);
+    expect(organization.hasComponent('payouts')).toBe(false);
+  });
+
   it('prevents adding money across currencies', () => {
     const usd = Money.fromMinorUnits(1000, 'usd');
     const cad = Money.fromMinorUnits(1000, 'cad');

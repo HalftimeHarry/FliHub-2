@@ -1,5 +1,5 @@
 export { League, type LeagueFormat } from './league.js';
-export { Player } from './player.js';
+export { Player, type PlayerType } from './player.js';
 export {
   InMemoryPlayerRepository,
   InMemoryTournamentRegistrationRepository,

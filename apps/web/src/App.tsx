@@ -1,9 +1,15 @@
+import { Building2 } from 'lucide-react';
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import { AppNavbar, type AppView } from '@/components/app-navbar.js';
 import { Dashboard } from '@/components/dashboard.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
 import { ObjectDiagram } from '@/components/object-diagram.js';
+import {
+  componentOptions,
+  StartGuide,
+  type OrganizationSetup
+} from '@/components/start-guide.js';
 import {
   Card,
   CardContent,
@@ -22,13 +28,17 @@ import {
 } from '@/components/ui/select.js';
 import {
   fetchDepartments,
+  fetchOrganization,
   fetchPlayers,
   fetchProjects,
   fetchTournaments,
   fetchUsers,
   getOrganizationHeaders,
+  seedDefaultOrganizations,
+  setActiveOrganization,
   setActiveUser,
   type DepartmentDto,
+  type OrganizationDto,
   type PlayerDto,
   type ProjectDto,
   type TournamentDto,
@@ -58,6 +68,12 @@ const roleLabels: Record<UserDto['role'], string> = {
   player: 'Player',
   business_staff: 'Business staff',
   admin: 'Admin'
+};
+
+const organizationLabels: Record<string, string> = {
+  fgl: 'FLI Golf',
+  'org-2': 'Example School',
+  'org-custom': 'Custom Demo League'
 };
 
 function ResultOutput({ result }: { result: ApiResult | undefined }) {
@@ -114,9 +130,120 @@ function UserSwitcher({
         </SelectContent>
       </Select>
       {currentUser !== undefined && (
-        <Badge variant="outline">{roleLabels[currentUser.role]}</Badge>
+        <Badge variant="outline">
+          {organizationLabels[currentUser.organizationId] ??
+            currentUser.organizationId}
+        </Badge>
       )}
     </div>
+  );
+}
+
+function OrganizationSwitcher({
+  organizations,
+  selectedOrganizationId,
+  onChange
+}: {
+  readonly organizations: readonly OrganizationDto[];
+  readonly selectedOrganizationId: string;
+  readonly onChange: (organizationId: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <Label
+        htmlFor="organization-switcher"
+        className="text-sm text-muted-foreground"
+      >
+        Organization
+      </Label>
+      <Select value={selectedOrganizationId} onValueChange={onChange}>
+        <SelectTrigger id="organization-switcher" className="w-64">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {organizations.map((organization) => (
+            <SelectItem key={organization.id} value={organization.id}>
+              {organization.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function OrganizationOverview({
+  organizationId,
+  currentUser,
+  userCount,
+  organization,
+  setup
+}: {
+  readonly organizationId: string;
+  readonly currentUser: UserDto | undefined;
+  readonly userCount: number;
+  readonly organization: OrganizationDto | undefined;
+  readonly setup: OrganizationSetup | undefined;
+}) {
+  const organizationName =
+    setup?.organizationName ??
+    organization?.name ??
+    (organizationId === 'fgl' ? 'FLI Golf' : `Organization ${organizationId}`);
+  const selectedLabels = new Map(
+    componentOptions.map((component) => [component.id, component.label])
+  );
+
+  return (
+    <Card className="border-sky-500/30 bg-sky-500/10">
+      <CardHeader>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Organization
+        </p>
+        <CardTitle className="flex items-center gap-2">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300">
+            <Building2 className="size-5" />
+          </span>
+          {organizationName}
+          <Badge variant="outline">Active organization</Badge>
+        </CardTitle>
+        <CardDescription>
+          The organization is the first boundary for your League and Business
+          workspace.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg bg-background/60 p-3">
+          <p className="text-xs text-muted-foreground">Organization ID</p>
+          <p className="mt-1 font-medium">{organizationId}</p>
+        </div>
+        <div className="rounded-lg bg-background/60 p-3">
+          <p className="text-xs text-muted-foreground">Signed in as</p>
+          <p className="mt-1 font-medium">{currentUser?.name ?? 'Loading'}</p>
+        </div>
+        <div className="rounded-lg bg-background/60 p-3">
+          <p className="text-xs text-muted-foreground">Organization users</p>
+          <p className="mt-1 font-medium">{userCount.toString()}</p>
+        </div>
+      </CardContent>
+      {(setup !== undefined || organization !== undefined) && (
+        <CardContent className="border-t pt-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">
+              {setup?.templateName ?? 'Organization configuration'}
+            </Badge>
+            {(
+              setup?.selectedComponents ??
+              organization?.enabledComponents ??
+              []
+            ).map((componentId) => (
+              <Badge key={componentId} variant="secondary">
+                {selectedLabels.get(componentId) ?? componentId}
+              </Badge>
+            ))}
+          </div>
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
@@ -350,24 +477,55 @@ export function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [users, setUsers] = useState<readonly UserDto[]>([]);
   const [players, setPlayers] = useState<readonly PlayerDto[]>([]);
+  const [organizations, setOrganizations] = useState<
+    readonly OrganizationDto[]
+  >([]);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState('fgl');
+  const [organization, setOrganization] = useState<OrganizationDto | undefined>(
+    undefined
+  );
+  const [organizationSetup, setOrganizationSetup] = useState<
+    OrganizationSetup | undefined
+  >(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>(
     undefined
   );
 
   useEffect(() => {
-    void fetchUsers().then((fetchedUsers) => {
-      setUsers(fetchedUsers);
-      setCurrentUserId(fetchedUsers[0]?.id);
-      setActiveUser(fetchedUsers[0].id);
-    });
     void fetchPlayers().then(setPlayers);
+    void Promise.all([fetchUsers(), seedDefaultOrganizations()]).then(
+      ([fetchedUsers, seeded]) => {
+        setUsers(fetchedUsers);
+        setOrganizations(seeded);
+        const savedOrganization = window.localStorage.getItem(
+          'flihub-active-organization'
+        );
+        const nextOrganizationId = savedOrganization ?? seeded[0].id;
+        setActiveOrganization(nextOrganizationId);
+        setSelectedOrganizationId(nextOrganizationId);
+        const matchingUser = fetchedUsers.find(
+          (user) => user.organizationId === nextOrganizationId
+        );
+        if (matchingUser !== undefined) {
+          setActiveUser(matchingUser.id);
+          setCurrentUserId(matchingUser.id);
+        } else {
+          setCurrentUserId(undefined);
+        }
+      }
+    );
   }, []);
+
+  useEffect(() => {
+    void fetchOrganization().then(setOrganization);
+  }, [refreshKey]);
 
   const refreshDashboard = () => {
     setRefreshKey((key) => key + 1);
   };
 
   const currentUser = users.find((user) => user.id === currentUserId);
+  const organizationId = selectedOrganizationId;
   const lockedPlayer =
     currentUser?.role === 'player'
       ? players.find((player) => player.id === currentUser.playerId)
@@ -383,35 +541,75 @@ export function App() {
       <div className="min-h-screen bg-muted/40">
         <AppNavbar activeView={activeView} onViewChange={setActiveView} />
         <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
-          {activeView === 'diagram' ? (
+          {activeView === 'start-guide' ? (
+            <StartGuide
+              onRegistered={(setup) => {
+                setOrganizationSetup(setup);
+                setActiveView('home');
+              }}
+            />
+          ) : activeView === 'diagram' ? (
             <ObjectDiagram refreshKey={refreshKey} />
           ) : (
             <>
               <header className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1">
                   <h1 className="text-3xl font-semibold tracking-tight">
-                    Home
+                    Organization workspace
                   </h1>
                   <p className="text-sm text-muted-foreground">
-                    Phase 0 proof of concept — exercise domain workflows through
-                    the API.
+                    Start with your organization, then drill into its League and
+                    Business workflows.
                   </p>
                 </div>
-                <UserSwitcher
-                  users={users}
-                  currentUserId={currentUserId}
-                  onChange={(userId) => {
-                    const selectedUser = users.find(
-                      (user) => user.id === userId
-                    );
-                    if (selectedUser !== undefined) {
-                      setActiveUser(selectedUser.id);
-                    }
-                    setCurrentUserId(userId);
-                    setRefreshKey((key) => key + 1);
-                  }}
-                />
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <OrganizationSwitcher
+                    organizations={organizations}
+                    selectedOrganizationId={organizationId}
+                    onChange={(nextOrganizationId) => {
+                      setActiveOrganization(nextOrganizationId);
+                      setSelectedOrganizationId(nextOrganizationId);
+                      const matchingUser = users.find(
+                        (user) => user.organizationId === nextOrganizationId
+                      );
+                      if (matchingUser !== undefined) {
+                        setActiveUser(matchingUser.id);
+                        setCurrentUserId(matchingUser.id);
+                      } else {
+                        setCurrentUserId(undefined);
+                      }
+                      setRefreshKey((key) => key + 1);
+                    }}
+                  />
+                  <UserSwitcher
+                    users={users.filter(
+                      (user) => user.organizationId === organizationId
+                    )}
+                    currentUserId={currentUserId}
+                    onChange={(userId) => {
+                      const selectedUser = users.find(
+                        (user) => user.id === userId
+                      );
+                      if (selectedUser !== undefined) {
+                        setActiveUser(selectedUser.id);
+                        setActiveOrganization(selectedUser.organizationId);
+                      }
+                      setCurrentUserId(userId);
+                      setRefreshKey((key) => key + 1);
+                    }}
+                  />
+                </div>
               </header>
+              <OrganizationOverview
+                organizationId={organizationId}
+                currentUser={currentUser}
+                organization={organization}
+                setup={organizationSetup}
+                userCount={
+                  users.filter((user) => user.organizationId === organizationId)
+                    .length
+                }
+              />
               <div className="grid gap-6 lg:grid-cols-2">
                 <div
                   key={currentUser?.organizationId}

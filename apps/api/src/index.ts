@@ -8,7 +8,9 @@ import {
 } from './organization-context.js';
 import {
   createBusinessRepositories,
-  createLeagueRepositories
+  createLeagueRepositories,
+  findOrganization,
+  seedDefaultOrganizations
 } from './seed-data.js';
 
 const app = express();
@@ -33,6 +35,8 @@ app.get('/', (_req, res) => {
       'GET /health',
       'GET /users',
       'GET /organization/users',
+      'GET /organization',
+      'POST /organization/seed',
       'GET /business/departments',
       'GET /business/projects',
       'GET /business/reimbursement-claims',
@@ -59,6 +63,46 @@ app.get(
   (req: OrganizationRequest, res) => {
     res.json(
       mockUsers.filter((user) => user.organizationId === req.organizationId)
+    );
+  }
+);
+
+app.get(
+  '/organization',
+  createOrganizationContextMiddleware(mockUsers),
+  (req: OrganizationRequest, res) => {
+    const organization = findOrganization(req.organizationId);
+
+    if (organization === undefined) {
+      res.status(404).json({
+        code: 'organization.not_found',
+        message: 'Organization could not be resolved.'
+      });
+      return;
+    }
+
+    res.json({
+      id: organization.id.value,
+      name: organization.name,
+      type: organization.type,
+      paysTeams: organization.paysTeams,
+      enabledComponents: organization.enabledComponents
+    });
+  }
+);
+
+app.post(
+  '/organization/seed',
+  createOrganizationContextMiddleware(mockUsers),
+  (_req: OrganizationRequest, res) => {
+    res.status(201).json(
+      seedDefaultOrganizations().map((organization) => ({
+        id: organization.id.value,
+        name: organization.name,
+        type: organization.type,
+        paysTeams: organization.paysTeams,
+        enabledComponents: organization.enabledComponents
+      }))
     );
   }
 );
@@ -140,7 +184,10 @@ app.get('/league/players', (req: OrganizationRequest, res) => {
           id: player.id.value,
           organizationId: player.organizationId.value,
           displayName: player.displayName,
-          active: player.active
+          active: player.active,
+          playerType: player.playerType,
+          schoolId: player.schoolId?.value,
+          professionalSince: player.professionalSince?.toISOString()
         }))
     );
   });

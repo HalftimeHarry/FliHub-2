@@ -14,7 +14,12 @@ import {
   type TournamentRegistrationDto
 } from '@/lib/api.js';
 import { Badge } from '@/components/ui/badge.js';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card.js';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card.js';
 import {
   Table,
   TableBody,
@@ -23,7 +28,12 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table.js';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.js';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from '@/components/ui/tabs.js';
 
 interface DashboardData {
   readonly players: readonly PlayerDto[];
@@ -47,11 +57,27 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
       fetchDepartments(),
       fetchProjects(),
       fetchReimbursementClaims()
-    ]).then(([players, tournaments, registrations, departments, projects, claims]) => {
-      if (!cancelled) {
-        setData({ players, tournaments, registrations, departments, projects, claims });
+    ]).then(
+      ([
+        players,
+        tournaments,
+        registrations,
+        departments,
+        projects,
+        claims
+      ]) => {
+        if (!cancelled) {
+          setData({
+            players,
+            tournaments,
+            registrations,
+            departments,
+            projects,
+            claims
+          });
+        }
       }
-    });
+    );
 
     return () => {
       cancelled = true;
@@ -79,6 +105,7 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                 <TableRow>
                   <TableHead>ID</TableHead>
                   <TableHead>Name</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -87,6 +114,13 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                   <TableRow key={player.id}>
                     <TableCell>{player.id}</TableCell>
                     <TableCell>{player.displayName}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {player.playerType === 'professional'
+                          ? 'professional'
+                          : 'student'}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <Badge variant={player.active ? 'default' : 'secondary'}>
                         {player.active ? 'active' : 'inactive'}
@@ -193,7 +227,8 @@ export function Dashboard({ refreshKey }: { refreshKey: number }) {
                     <TableCell>{claim.id}</TableCell>
                     <TableCell>{claim.departmentId}</TableCell>
                     <TableCell>
-                      {(claim.totalMinorUnits / 100).toFixed(2)} {claim.currency}
+                      {(claim.totalMinorUnits / 100).toFixed(2)}{' '}
+                      {claim.currency}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{claim.status}</Badge>

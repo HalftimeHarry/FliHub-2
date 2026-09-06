@@ -1,8 +1,8 @@
-import { Home, Network } from 'lucide-react';
+import { Network, Rocket } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle.js';
 import { Button } from '@/components/ui/button.js';
 
-export type AppView = 'home' | 'diagram';
+export type AppView = 'home' | 'diagram' | 'start-guide';
 
 export function AppNavbar({
   activeView,
@@ -15,19 +15,17 @@ export function AppNavbar({
     <nav className="border-b bg-background/80 backdrop-blur-sm">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-8 py-3">
         <div className="flex items-center gap-6">
-          <span className="text-sm font-semibold tracking-tight">FLIHub</span>
+          <Button
+            variant={activeView === 'home' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => {
+              onViewChange('home');
+            }}
+            aria-current={activeView === 'home' ? 'page' : undefined}
+          >
+            FLIHub
+          </Button>
           <div className="flex items-center gap-1">
-            <Button
-              variant={activeView === 'home' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                onViewChange('home');
-              }}
-              aria-current={activeView === 'home' ? 'page' : undefined}
-            >
-              <Home />
-              Home
-            </Button>
             <Button
               variant={activeView === 'diagram' ? 'secondary' : 'ghost'}
               size="sm"
@@ -38,6 +36,17 @@ export function AppNavbar({
             >
               <Network />
               Diagram
+            </Button>
+            <Button
+              variant={activeView === 'start-guide' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                onViewChange('start-guide');
+              }}
+              aria-current={activeView === 'start-guide' ? 'page' : undefined}
+            >
+              <Rocket />
+              Start Guide
             </Button>
           </div>
         </div>
