@@ -7,11 +7,33 @@ export interface PlayerDto {
   readonly professionalSince?: string;
 }
 
+export type TournamentStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
 export interface TournamentDto {
   readonly id: string;
   readonly seasonId: string;
   readonly name: string;
   readonly capacity: number;
+  readonly status?: TournamentStatus;
+  readonly courseId?: string;
+}
+
+export interface CourseDto {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly name: string;
+  readonly holeCount: number;
+}
+
+export interface HoleDto {
+  readonly id: string;
+  readonly courseId: string;
+  readonly number: number;
+  readonly par: number;
 }
 
 export interface TournamentRegistrationDto {
@@ -333,6 +355,51 @@ export const getOrganizationDepartments = (
     (department) => department.organizationId === organizationId
   );
 
+/**
+ * Add a single department to an existing (custom) organization. Appends to the
+ * stored departments rather than replacing them, unlike
+ * registerOrganizationDepartments which seeds the initial set.
+ */
+export const addOrganizationDepartment = (
+  organizationId: string,
+  department: { readonly name: string; readonly headName?: string },
+  storage: Storage | undefined = getStorage()
+): DepartmentDto => {
+  const name = department.name.trim();
+
+  if (name.length < 2) {
+    throw new Error('Department name must contain at least two characters.');
+  }
+
+  const slug =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'department';
+
+  const existing = readCustomDepartments(storage);
+  const scopeId = `${organizationId}-${slug}`;
+  const uniqueId = existing.some((entry) => entry.id === scopeId)
+    ? `${scopeId}-${Date.now().toString(36)}`
+    : scopeId;
+
+  const nextDepartment: DepartmentDto = {
+    id: uniqueId,
+    organizationId,
+    name,
+    headName: department.headName?.trim() ?? ''
+  };
+
+  if (storage !== undefined) {
+    storage.setItem(
+      customDepartmentsStorageKey,
+      JSON.stringify([...existing, nextDepartment])
+    );
+  }
+
+  return nextDepartment;
+};
+
 const demoUsers: readonly UserDto[] = [
   {
     id: 'player-1',
@@ -450,15 +517,38 @@ const demoData: Record<string, unknown> = {
       id: 'tournament-1',
       seasonId: 'season-1',
       name: 'Spring Open',
-      capacity: 32
+      capacity: 32,
+      status: 'scheduled',
+      courseId: 'course-1'
     },
     {
       id: 'tournament-2',
       seasonId: 'season-1',
       name: 'Summer Championship',
-      capacity: 16
+      capacity: 16,
+      status: 'scheduled',
+      courseId: 'course-2'
     }
   ] satisfies readonly TournamentDto[],
+  '/league/courses': [
+    {
+      id: 'course-1',
+      organizationId: 'fgl',
+      name: 'Maple Ridge',
+      holeCount: 18
+    },
+    {
+      id: 'course-2',
+      organizationId: 'fgl',
+      name: 'Harbor Point',
+      holeCount: 18
+    }
+  ] satisfies readonly CourseDto[],
+  '/league/holes': [
+    { id: 'course-1-hole-1', courseId: 'course-1', number: 1, par: 3 },
+    { id: 'course-1-hole-2', courseId: 'course-1', number: 2, par: 4 },
+    { id: 'course-1-hole-3', courseId: 'course-1', number: 3, par: 5 }
+  ] satisfies readonly HoleDto[],
   '/league/tournament-registrations':
     [] satisfies readonly TournamentRegistrationDto[],
   '/business/departments': [
@@ -548,6 +638,9 @@ export const fetchPlayers = () =>
   getJson<readonly PlayerDto[]>('/league/players');
 export const fetchTournaments = () =>
   getJson<readonly TournamentDto[]>('/league/tournaments');
+export const fetchCourses = () =>
+  getJson<readonly CourseDto[]>('/league/courses');
+export const fetchHoles = () => getJson<readonly HoleDto[]>('/league/holes');
 export const fetchTournamentRegistrations = () =>
   getJson<readonly TournamentRegistrationDto[]>(
     '/league/tournament-registrations'
@@ -589,3 +682,61 @@ export const seedDefaultOrganizations = async (): Promise<
 
   return getOrganizationCatalog();
 };
+
+const postJson = async <Value>(
+  path: string,
+  body: unknown
+): Promise<Value> => {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getOrganizationHeaders()
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(
+      error.message ?? `Request failed (${response.status.toString()})`
+    );
+  }
+
+  return (await response.json()) as Value;
+};
+
+export const addTournament = (input: {
+  readonly name: string;
+  readonly capacity?: number;
+  readonly courseId?: string;
+}) => postJson<TournamentDto>('/league/tournaments', input);
+
+export const addCourse = (input: {
+  readonly name: string;
+  readonly holeCount?: number;
+}) => postJson<CourseDto>('/league/courses', input);
+
+export const addHole = (input: {
+  readonly courseId: string;
+  readonly number?: number;
+  readonly par?: number;
+}) => postJson<HoleDto>('/league/holes', input);
+
+export interface LeagueSeedResult {
+  readonly organizationId: string;
+  readonly created: {
+    readonly tournaments: readonly string[];
+    readonly courses: readonly string[];
+    readonly holes: number;
+  };
+}
+
+export const seedLeague = (input: {
+  readonly tournaments?: number;
+  readonly courses?: number;
+  readonly holesPerCourse?: number;
+  readonly tournamentCapacity?: number;
+}) => postJson<LeagueSeedResult>('/league/seed', input);

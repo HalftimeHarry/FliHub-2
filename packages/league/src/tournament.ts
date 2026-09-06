@@ -13,7 +13,8 @@ export class Tournament {
     public readonly seasonId: Identifier,
     public readonly name: string,
     public readonly capacity: number,
-    public readonly status: TournamentStatus
+    public readonly status: TournamentStatus,
+    public readonly courseId: Identifier | undefined
   ) {}
 
   public static create(input: {
@@ -23,6 +24,7 @@ export class Tournament {
     name: string;
     capacity: number;
     status?: TournamentStatus;
+    courseId?: string;
   }): Tournament {
     const name = input.name.trim();
 
@@ -46,7 +48,10 @@ export class Tournament {
       Identifier.create(input.seasonId, 'season id'),
       name,
       input.capacity,
-      input.status ?? 'scheduled'
+      input.status ?? 'scheduled',
+      input.courseId === undefined
+        ? undefined
+        : Identifier.create(input.courseId, 'course id')
     );
   }
 

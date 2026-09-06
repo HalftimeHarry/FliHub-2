@@ -1,5 +1,7 @@
 import { Identifier } from '@flihub/core';
 import { InMemoryRepository } from '@flihub/persistence';
+import type { Course } from '../course.js';
+import type { Hole } from '../hole.js';
 import type { Player } from '../player.js';
 import type { Tournament } from '../tournament.js';
 import type { TournamentRegistration } from '../tournament-registration.js';
@@ -11,7 +13,21 @@ export interface PlayerRepository {
 
 export interface TournamentRepository {
   findById(id: Identifier): Promise<Tournament | undefined>;
+  save(tournament: Tournament): Promise<void>;
   list(): Promise<readonly Tournament[]>;
+}
+
+export interface CourseRepository {
+  findById(id: Identifier): Promise<Course | undefined>;
+  save(course: Course): Promise<void>;
+  list(): Promise<readonly Course[]>;
+}
+
+export interface HoleRepository {
+  findById(id: Identifier): Promise<Hole | undefined>;
+  save(hole: Hole): Promise<void>;
+  listForCourse(courseId: Identifier): Promise<readonly Hole[]>;
+  list(): Promise<readonly Hole[]>;
 }
 
 export interface TournamentRegistrationRepository {
@@ -31,6 +47,21 @@ export class InMemoryPlayerRepository
 export class InMemoryTournamentRepository
   extends InMemoryRepository<Tournament>
   implements TournamentRepository {}
+
+export class InMemoryCourseRepository
+  extends InMemoryRepository<Course>
+  implements CourseRepository {}
+
+export class InMemoryHoleRepository
+  extends InMemoryRepository<Hole>
+  implements HoleRepository {
+  public async listForCourse(courseId: Identifier): Promise<readonly Hole[]> {
+    const holes = await this.list();
+    return holes
+      .filter((hole) => hole.courseId.equals(courseId))
+      .sort((left, right) => left.number - right.number);
+  }
+}
 
 export class InMemoryTournamentRegistrationRepository implements TournamentRegistrationRepository {
   private readonly registrations = new Map<string, TournamentRegistration>();

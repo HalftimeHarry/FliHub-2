@@ -7,6 +7,10 @@ import {
   Project
 } from '@flihub/business';
 import {
+  Course,
+  Hole,
+  InMemoryCourseRepository,
+  InMemoryHoleRepository,
   InMemoryPlayerRepository,
   InMemoryTournamentRegistrationRepository,
   InMemoryTournamentRepository,
@@ -169,22 +173,61 @@ export const createLeagueRepositories = () => ({
       organizationId: 'fgl',
       seasonId: 'season-1',
       name: 'Spring Open',
-      capacity: 32
+      capacity: 32,
+      courseId: 'course-1'
     }),
     Tournament.create({
       id: 'tournament-2',
       organizationId: 'fgl',
       seasonId: 'season-1',
       name: 'Summer Championship',
-      capacity: 16
+      capacity: 16,
+      courseId: 'course-2'
     }),
     Tournament.create({
       id: 'tournament-3',
       organizationId: 'org-2',
       seasonId: 'season-2',
       name: 'Course Community Cup',
-      capacity: 24
+      capacity: 24,
+      courseId: 'course-3'
     })
   ]),
+  courses: new InMemoryCourseRepository([
+    Course.create({
+      id: 'course-1',
+      organizationId: 'fgl',
+      name: 'Maple Ridge',
+      holeCount: 18
+    }),
+    Course.create({
+      id: 'course-2',
+      organizationId: 'fgl',
+      name: 'Harbor Point',
+      holeCount: 18
+    }),
+    Course.create({
+      id: 'course-3',
+      organizationId: 'org-2',
+      name: 'Campus Greens',
+      holeCount: 9
+    })
+  ]),
+  holes: new InMemoryHoleRepository(
+    [
+      { courseId: 'course-1', count: 18 },
+      { courseId: 'course-2', count: 18 },
+      { courseId: 'course-3', count: 9 }
+    ].flatMap(({ courseId, count }) =>
+      Array.from({ length: count }, (_, index) =>
+        Hole.create({
+          id: `${courseId}-hole-${(index + 1).toString()}`,
+          courseId,
+          number: index + 1,
+          par: (index % 3) + 3
+        })
+      )
+    )
+  ),
   registrations: new InMemoryTournamentRegistrationRepository()
 });
