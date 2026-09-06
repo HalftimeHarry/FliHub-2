@@ -20,3 +20,9 @@ The domain model uses object-oriented design where it improves clarity: domain c
 ## Infrastructure isolation
 
 Persistence is expressed through interfaces. In-memory repositories demonstrate behavior now; future adapters such as PocketBase repositories should implement the same contracts without changing domain classes.
+
+## Tenant isolation
+
+Every domain request must be associated with an authenticated user. The API resolves the user's organization membership and derives the organization context; clients do not choose an organization directly. The current proof of concept represents authentication with the `x-user-id` header and mock users. A production adapter should replace that header with a verified session or JWT claim.
+
+League and Business records are filtered by the derived organization context, and workflows reject cross-organization references before creating new records. Repository and persistence adapters should preserve this boundary when they are replaced with database-backed implementations.

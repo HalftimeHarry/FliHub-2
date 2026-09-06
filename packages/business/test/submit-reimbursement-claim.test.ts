@@ -29,6 +29,7 @@ describe('createSubmitReimbursementClaimWorkflow', () => {
     });
 
     const result = await workflow.execute({
+      organizationId: 'fgl',
       claimantId: 'staff-1',
       departmentId: 'department-1',
       projectId: 'project-1',
@@ -74,6 +75,7 @@ describe('createSubmitReimbursementClaimWorkflow', () => {
     });
 
     const result = await workflow.execute({
+      organizationId: 'fgl',
       claimantId: 'staff-1',
       departmentId: 'department-1',
       projectId: 'project-1',

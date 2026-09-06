@@ -12,11 +12,16 @@ describe('createTournamentRegistrationWorkflow', () => {
   it('registers an active player when capacity is available', async () => {
     const workflow = createTournamentRegistrationWorkflow({
       players: new InMemoryPlayerRepository([
-        Player.create({ id: 'player-1', displayName: 'Alex Player' })
+        Player.create({
+          id: 'player-1',
+          organizationId: 'fgl',
+          displayName: 'Alex Player'
+        })
       ]),
       tournaments: new InMemoryTournamentRepository([
         Tournament.create({
           id: 'tournament-1',
+          organizationId: 'fgl',
           seasonId: 'season-1',
           name: 'Opening Cup',
           capacity: 2
@@ -26,6 +31,7 @@ describe('createTournamentRegistrationWorkflow', () => {
     });
 
     const result = await workflow.execute({
+      organizationId: 'fgl',
       playerId: 'player-1',
       tournamentId: 'tournament-1',
       requestedAt: '2026-01-10T12:00:00.000Z'
@@ -47,6 +53,7 @@ describe('createTournamentRegistrationWorkflow', () => {
       players: new InMemoryPlayerRepository([
         Player.create({
           id: 'player-1',
+          organizationId: 'fgl',
           displayName: 'Alex Player',
           active: false
         })
@@ -54,6 +61,7 @@ describe('createTournamentRegistrationWorkflow', () => {
       tournaments: new InMemoryTournamentRepository([
         Tournament.create({
           id: 'tournament-1',
+          organizationId: 'fgl',
           seasonId: 'season-1',
           name: 'Opening Cup',
           capacity: 2
@@ -63,6 +71,7 @@ describe('createTournamentRegistrationWorkflow', () => {
     });
 
     const result = await workflow.execute({
+      organizationId: 'fgl',
       playerId: 'player-1',
       tournamentId: 'tournament-1'
     });

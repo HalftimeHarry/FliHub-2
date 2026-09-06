@@ -87,6 +87,18 @@ const resolveTournamentRegistrationContext =
       );
     }
 
+    if (
+      !player.organizationId.equals(tournament.organizationId) ||
+      player.organizationId.value !== request.organizationId
+    ) {
+      return fail(
+        new DomainError(
+          'league.registration.organization_mismatch',
+          'Player and tournament must belong to the requested organization.'
+        )
+      );
+    }
+
     return succeed({ request, player, tournament });
   };
 

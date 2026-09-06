@@ -20,6 +20,18 @@ The initial Business model demonstrates:
 
 `ExpenseItem` and `Money` support the reimbursement proof of concept. Future Business concepts include vendors, budgets, staff assignment, project membership, department membership, approval workflows, expenses, and reporting. Commercial concepts such as sponsors, advertisers, campaigns, sponsorship opportunities, contracts, media rights, media licenses, invoices, payments, and analytics belong in Business subdomains.
 
+## Business operations expansion
+
+The next Business workflow should extend the project model without coupling procurement to reimbursement claims:
+
+`Department -> DepartmentBudget -> Project -> ProjectBudget -> Task -> TaskExpense`
+
+Tasks can record expenses that roll up into the ProjectBudget and DepartmentBudget. A Department Head can create a procurement request with specifications, invite vendor responses, and recommend a bid:
+
+`DepartmentHead -> BidRequest -> Bid -> AdminApproval -> Payment -> BankAccount -> Paid`
+
+The approval is an explicit authorization boundary. An accepted bid must not enter the payment pipeline until the required administrative approval succeeds. Payment processing should select from the organization's configured bank accounts and record a terminal settlement state. These concepts should remain behind interfaces so future accounting or banking adapters can replace the proof-of-concept implementation.
+
 ## Community boundary
 
 Community will eventually support participant-facing services such as player profiles, memberships, community programs, facilities, reservations, events, digital goods, academy programming, and coaches. No Community behavior is implemented in Phase 0.

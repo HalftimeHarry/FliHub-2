@@ -1,7 +1,9 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
+import { AppNavbar, type AppView } from '@/components/app-navbar.js';
 import { Dashboard } from '@/components/dashboard.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
+import { ObjectDiagram } from '@/components/object-diagram.js';
 import {
   Card,
   CardContent,
@@ -24,12 +26,15 @@ import {
   fetchProjects,
   fetchTournaments,
   fetchUsers,
+  getOrganizationHeaders,
+  setActiveUser,
   type DepartmentDto,
   type PlayerDto,
   type ProjectDto,
   type TournamentDto,
   type UserDto
 } from '@/lib/api.js';
+import { ThemeProvider } from '@/components/theme-provider.js';
 
 interface ApiResult {
   readonly status: number;
@@ -39,7 +44,10 @@ interface ApiResult {
 const postJson = async (path: string, body: unknown): Promise<ApiResult> => {
   const response = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getOrganizationHeaders()
+    },
     body: JSON.stringify(body)
   });
 
@@ -338,15 +346,19 @@ function TournamentRegistrationForm({
 }
 
 export function App() {
+  const [activeView, setActiveView] = useState<AppView>('home');
   const [refreshKey, setRefreshKey] = useState(0);
   const [users, setUsers] = useState<readonly UserDto[]>([]);
   const [players, setPlayers] = useState<readonly PlayerDto[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | undefined>(undefined);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     void fetchUsers().then((fetchedUsers) => {
       setUsers(fetchedUsers);
       setCurrentUserId(fetchedUsers[0]?.id);
+      setActiveUser(fetchedUsers[0].id);
     });
     void fetchPlayers().then(setPlayers);
   }, []);
@@ -367,49 +379,73 @@ export function App() {
     currentUser?.role === 'player' || currentUser?.role === 'admin';
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
-        <header className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-3xl font-semibold tracking-tight">FLIHub</h1>
-            <p className="text-sm text-muted-foreground">
-              Phase 0 proof of concept — exercise domain workflows through the API.
-            </p>
-          </div>
-          <UserSwitcher
-            users={users}
-            currentUserId={currentUserId}
-            onChange={setCurrentUserId}
-          />
-        </header>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="flex flex-col gap-6">
-            {showReimbursementForm && (
-              <ReimbursementClaimForm
-                claimantId={currentUser.id}
-                onSubmitted={refreshDashboard}
-              />
-            )}
-            {showRegistrationForm && (
-              <TournamentRegistrationForm
-                lockedPlayer={lockedPlayer}
-                onSubmitted={refreshDashboard}
-              />
-            )}
-            {!showReimbursementForm && !showRegistrationForm && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>No actions available</CardTitle>
-                  <CardDescription>
-                    Select a user above to see role-driven workflows.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            )}
-          </div>
-          <Dashboard refreshKey={refreshKey} />
-        </div>
-      </main>
-    </div>
+    <ThemeProvider defaultTheme="dark" storageKey="flihub-ui-theme">
+      <div className="min-h-screen bg-muted/40">
+        <AppNavbar activeView={activeView} onViewChange={setActiveView} />
+        <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
+          {activeView === 'diagram' ? (
+            <ObjectDiagram refreshKey={refreshKey} />
+          ) : (
+            <>
+              <header className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1">
+                  <h1 className="text-3xl font-semibold tracking-tight">
+                    Home
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    Phase 0 proof of concept — exercise domain workflows through
+                    the API.
+                  </p>
+                </div>
+                <UserSwitcher
+                  users={users}
+                  currentUserId={currentUserId}
+                  onChange={(userId) => {
+                    const selectedUser = users.find(
+                      (user) => user.id === userId
+                    );
+                    if (selectedUser !== undefined) {
+                      setActiveUser(selectedUser.id);
+                    }
+                    setCurrentUserId(userId);
+                    setRefreshKey((key) => key + 1);
+                  }}
+                />
+              </header>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div
+                  key={currentUser?.organizationId}
+                  className="flex flex-col gap-6"
+                >
+                  {showReimbursementForm && (
+                    <ReimbursementClaimForm
+                      claimantId={currentUser.id}
+                      onSubmitted={refreshDashboard}
+                    />
+                  )}
+                  {showRegistrationForm && (
+                    <TournamentRegistrationForm
+                      lockedPlayer={lockedPlayer}
+                      onSubmitted={refreshDashboard}
+                    />
+                  )}
+                  {!showReimbursementForm && !showRegistrationForm && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>No actions available</CardTitle>
+                        <CardDescription>
+                          Select a user above to see role-driven workflows.
+                        </CardDescription>
+                      </CardHeader>
+                    </Card>
+                  )}
+                </div>
+                <Dashboard refreshKey={refreshKey} />
+              </div>
+            </>
+          )}
+        </main>
+      </div>
+    </ThemeProvider>
   );
 }

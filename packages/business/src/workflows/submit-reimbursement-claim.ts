@@ -78,6 +78,15 @@ const resolveBusinessContext =
       );
     }
 
+    if (department.organizationId.value !== request.organizationId) {
+      return fail(
+        new DomainError(
+          'business.reimbursement.organization_mismatch',
+          'Department does not belong to the requested organization.'
+        )
+      );
+    }
+
     if (request.projectId === undefined) {
       return succeed({ request, department, project: undefined });
     }

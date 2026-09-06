@@ -3,6 +3,7 @@ import { DomainError, Identifier } from '@flihub/core';
 export class Tournament {
   private constructor(
     public readonly id: Identifier,
+    public readonly organizationId: Identifier,
     public readonly seasonId: Identifier,
     public readonly name: string,
     public readonly capacity: number
@@ -10,6 +11,7 @@ export class Tournament {
 
   public static create(input: {
     id: string;
+    organizationId: string;
     seasonId: string;
     name: string;
     capacity: number;
@@ -32,6 +34,7 @@ export class Tournament {
 
     return new Tournament(
       Identifier.create(input.id, 'tournament id'),
+      Identifier.create(input.organizationId, 'organization id'),
       Identifier.create(input.seasonId, 'season id'),
       name,
       input.capacity
