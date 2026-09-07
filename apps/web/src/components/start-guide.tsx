@@ -62,7 +62,7 @@ export const componentOptions: readonly ComponentOption[] = [
     id: 'fli-golf-format',
     label: 'FLI Golf format',
     description:
-      'The standard FLI Golf competition structure and scoring flow.',
+      'Nine physical holes played twice, two-pro teams, tee groups, and scorekeeper approval.',
     icon: Flag,
     tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300'
   },
@@ -120,6 +120,8 @@ const templateDetails: Record<
     readonly selected: readonly string[];
     readonly badge: string;
     readonly tone: string;
+    readonly setup: readonly string[];
+    readonly bestFor: string;
   }
 > = {
   'fli-golf': {
@@ -129,7 +131,14 @@ const templateDetails: Record<
     note: 'Includes the standard competition model: up to 12 teams, two-player teams, six tournaments, courses and holes, scorekeeper approval, standings, fantasy, and payouts.',
     selected: componentOptions.map((option) => option.id),
     badge: 'Complete standard',
-    tone: 'border-emerald-500/50 bg-emerald-500/10'
+    tone: 'border-emerald-500/50 bg-emerald-500/10',
+    setup: [
+      'Season purse and schedule',
+      'Teams and professional rosters',
+      'Courses, holes, groups, and scoring',
+      'Fantasy, payouts, sponsorship, and community'
+    ],
+    bestFor: 'Professional FLI Golf operations'
   },
   'fli-basic': {
     name: 'FLI Basic',
@@ -143,7 +152,14 @@ const templateDetails: Record<
       'courses-and-scoring'
     ],
     badge: 'School-friendly',
-    tone: 'border-sky-500/50 bg-sky-500/10'
+    tone: 'border-sky-500/50 bg-sky-500/10',
+    setup: [
+      'Season schedule',
+      'Teams and participant rosters',
+      'Courses, holes, groups, and scoring',
+      'Add commercial modules later'
+    ],
+    bestFor: 'School and regional competition operations'
   },
   custom: {
     name: 'Custom',
@@ -157,7 +173,14 @@ const templateDetails: Record<
       'courses-and-scoring'
     ],
     badge: 'Configurable',
-    tone: 'border-violet-500/50 bg-violet-500/10'
+    tone: 'border-violet-500/50 bg-violet-500/10',
+    setup: [
+      'Start with core League operations',
+      'Choose enabled modules',
+      'Configure teams and courses',
+      'Expand the workspace as needed'
+    ],
+    bestFor: 'A tailored organization workspace'
   }
 };
 
@@ -190,6 +213,9 @@ export function StartGuide({
 
   const details = templateDetails[template];
   const TemplateIcon = templateIcons[template];
+  const componentLabels = new Map(
+    componentOptions.map((component) => [component.id, component.label])
+  );
 
   const steps = [
     { id: 0, label: 'Template' },
@@ -327,6 +353,13 @@ export function StartGuide({
                   {organization.id} ·{' '}
                   {organization.enabledComponents.length.toString()} components
                 </p>
+                <div className="mt-3 flex flex-wrap gap-1">
+                  {organization.enabledComponents.map((componentId) => (
+                    <Badge key={componentId} variant="secondary" className="text-xs">
+                      {componentLabels.get(componentId) ?? componentId}
+                    </Badge>
+                  ))}
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -406,13 +439,25 @@ export function StartGuide({
                   <p className="mt-2 text-sm text-muted-foreground">
                     {option.description}
                   </p>
+                  <p className="mt-4 text-xs font-medium text-foreground">
+                    {option.bestFor}
+                  </p>
+                  <ul className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
+                    {option.setup.map((item) => (
+                      <li key={item} className="flex gap-2">
+                        <Check className="mt-0.5 size-3 shrink-0 text-emerald-600" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </button>
               );
             })}
           </div>
 
           <Card>
-            <CardContent className="flex flex-col gap-2 pt-6">
+            <CardContent className="grid gap-5 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="flex flex-col gap-2">
               <Label htmlFor="organization-name">Organization name</Label>
               <Input
                 id="organization-name"
@@ -423,6 +468,16 @@ export function StartGuide({
                   setRegistered(false);
                 }}
               />
+              </div>
+              <div className="border-l-2 border-primary/40 pl-4">
+                <p className="text-sm font-medium">Your operating sequence</p>
+                <ol className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                  <li>1. Create seasons and their purses.</li>
+                  <li>2. Add professional teams and courses.</li>
+                  <li>3. Schedule tournaments and tee groups.</li>
+                  <li>4. Assign scorekeepers and run scoring.</li>
+                </ol>
+              </div>
             </CardContent>
           </Card>
         </div>

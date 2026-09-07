@@ -8,6 +8,7 @@ import {
   Season,
   Team,
   Tournament,
+  TournamentTeeGroup,
   createTournamentRegistrationWorkflow,
   type SeasonStatus,
   type TournamentStatus,
@@ -50,6 +51,109 @@ const submitReimbursementClaim =
 const registerPlayerForTournament =
   createTournamentRegistrationWorkflow(leagueRepositories);
 
+const turfParadiseHoles = [
+  {
+    number: 1,
+    name: 'Ridge View',
+    description: 'A tight par 3 with a soft dogleg that rewards precision off the tee.',
+    distanceFeet: 210,
+    blueBasketPosition: '210 ft, blue basket setup',
+    redBasketPosition: '220 ft, 10 ft right'
+  },
+  {
+    number: 2,
+    name: 'Canyon Cut',
+    description: 'A mid-range shot with a creek guarding the fairway on the approach.',
+    distanceFeet: 295,
+    blueBasketPosition: '287 ft, 8 ft left',
+    redBasketPosition: '289 ft, 6 ft left'
+  },
+  {
+    number: 3,
+    name: 'Briar Line',
+    description: 'The landing area narrows around a tree line and a fast green.',
+    distanceFeet: 180,
+    blueBasketPosition: '192 ft, 12 ft right',
+    redBasketPosition: '194 ft, 14 ft right'
+  },
+  {
+    number: 4,
+    name: 'Dogleg Drop',
+    description: 'An obstacle-lined hole with a slight left break and a small green.',
+    distanceFeet: 240,
+    blueBasketPosition: '230 ft, 10 ft left',
+    redBasketPosition: '228 ft, 12 ft left'
+  },
+  {
+    number: 5,
+    name: 'Mesa Glide',
+    description: 'A gradually uphill shot with a shallow green and a forgiving right side.',
+    distanceFeet: 330,
+    blueBasketPosition: '345 ft, 15 ft right',
+    redBasketPosition: '348 ft, 18 ft right'
+  },
+  {
+    number: 6,
+    name: 'Pine Capsule',
+    description: 'A compact green surrounded by trees and an elevated tee.',
+    distanceFeet: 150,
+    blueBasketPosition: '164 ft, 14 ft right',
+    redBasketPosition: '166 ft, 16 ft right'
+  },
+  {
+    number: 7,
+    name: 'Desert Drift',
+    description: 'A longer approach that asks for a stable line over the lake hazard.',
+    distanceFeet: 380,
+    blueBasketPosition: '368 ft, 12 ft left',
+    redBasketPosition: '366 ft, 14 ft left'
+  },
+  {
+    number: 8,
+    name: 'After Dark Patio 21+',
+    description: 'The party hole: fans and guests must be 21+ on this side of the course.',
+    distanceFeet: 135,
+    blueBasketPosition: '153 ft, 18 ft right',
+    redBasketPosition: '155 ft, 20 ft right'
+  },
+  {
+    number: 9,
+    name: 'Sunset Finish',
+    description: 'An open finishing hole with enough room to go for the aggressive line.',
+    distanceFeet: 425,
+    blueBasketPosition: '409 ft, 16 ft left',
+    redBasketPosition: '407 ft, 18 ft left'
+  }
+] as const;
+
+const shuffle = <Value>(values: readonly Value[]): Value[] => {
+  const shuffled = [...values];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [
+      shuffled[swapIndex],
+      shuffled[index]
+    ];
+  }
+  return shuffled;
+};
+
+const createTeeGroups = (tournament: Tournament, teams: readonly Team[]) => {
+  const shuffledTeams = shuffle(teams);
+  return Array.from({ length: 6 }, (_, index) =>
+    TournamentTeeGroup.create({
+      id: `${tournament.id.value}-group-${(index + 1).toString()}`,
+      tournamentId: tournament.id.value,
+      number: index + 1,
+      teeTime: `3:${(index * 10).toString().padStart(2, '0')} PM PST`,
+      teamIds: [
+        shuffledTeams[index].id.value,
+        shuffledTeams[shuffledTeams.length - 1 - index].id.value
+      ]
+    })
+  );
+};
+
 app.get('/', (_req, res) => {
   res.json({
     name: 'FLIHub API',
@@ -72,6 +176,9 @@ app.get('/', (_req, res) => {
       'POST /league/teams',
       'GET /league/tournaments',
       'GET /league/tournaments/:id/tee-groups',
+      'POST /league/tournaments/:id/tee-groups/seed',
+      'DELETE /league/tournaments/:id/tee-groups',
+      'POST /league/tournaments/tee-groups/seed-all',
       'POST /league/tournaments',
       'POST /league/tournaments/seed-six',
       'PUT /league/tournaments/:id',
@@ -79,8 +186,12 @@ app.get('/', (_req, res) => {
       'POST /league/tournaments/delete-many',
       'GET /league/courses',
       'POST /league/courses',
+      'PUT /league/courses/:id',
+      'DELETE /league/courses/:id',
       'GET /league/holes',
       'POST /league/holes',
+      'POST /league/holes/delete-many',
+      'POST /league/courses/:id/turf-paradise-layout',
       'GET /league/tournament-registrations',
       'POST /league/tournament-registrations',
       'GET /fantasy/leagues',
@@ -599,11 +710,93 @@ app.get('/league/holes', (req: OrganizationRequest, res) => {
           id: hole.id.value,
           courseId: hole.courseId.value,
           number: hole.number,
-          par: hole.par
+          par: hole.par,
+          name: hole.name,
+          description: hole.description,
+          distanceFeet: hole.distanceFeet,
+          blueBasketPosition: hole.blueBasketPosition,
+          redBasketPosition: hole.redBasketPosition
         }))
     );
   });
 });
+
+app.post(
+  '/league/courses/:id/turf-paradise-layout',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const courseId = Identifier.create(req.params.id, 'course id');
+    void leagueRepositories.courses.findById(courseId).then(async (course) => {
+      if (course?.organizationId.value !== req.organizationId) {
+        res.status(404).json({
+          code: 'league.course.not_found',
+          message: 'Course could not be resolved for this organization.'
+        });
+        return;
+      }
+      if (course.holeCount !== 9) {
+        res.status(400).json({
+          code: 'league.course.turf_paradise_requires_nine_holes',
+          message: 'The Turf Paradise layout requires a nine-hole course.'
+        });
+        return;
+      }
+      const holes = turfParadiseHoles.map((layout) =>
+        Hole.create({
+          id: `${course.id.value}-hole-${layout.number.toString()}`,
+          courseId: course.id.value,
+          par: 3,
+          ...layout
+        })
+      );
+      await Promise.all(holes.map((hole) => leagueRepositories.holes.save(hole)));
+      res.status(201).json({ courseId: course.id.value, created: holes.length });
+    });
+  }
+);
+
+app.post(
+  '/league/holes/delete-many',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const body = req.body as { holeIds?: string[] };
+    const holeIds = body.holeIds ?? [];
+    if (holeIds.length === 0) {
+      res.status(400).json({
+        code: 'league.hole.selection_required',
+        message: 'Select at least one hole to delete.'
+      });
+      return;
+    }
+    void Promise.all([
+      leagueRepositories.holes.list(),
+      leagueRepositories.courses.list()
+    ]).then(async ([holes, courses]) => {
+      const selected = holes.filter((hole) => holeIds.includes(hole.id.value));
+      const organizationCourseIds = new Set(
+        courses
+          .filter((course) => course.organizationId.value === req.organizationId)
+          .map((course) => course.id.value)
+      );
+      if (
+        selected.length !== holeIds.length ||
+        selected.some(
+          (hole) => !organizationCourseIds.has(hole.courseId.value)
+        )
+      ) {
+        res.status(404).json({
+          code: 'league.hole.not_found',
+          message: 'One or more holes could not be resolved for this organization.'
+        });
+        return;
+      }
+      await Promise.all(
+        selected.map((hole) => leagueRepositories.holes.deleteById(hole.id))
+      );
+      res.json({});
+    });
+  }
+);
 
 app.get(
   '/league/tournaments/:id/tee-groups',
@@ -633,6 +826,99 @@ app.get(
           )
         }))
       );
+    });
+  }
+);
+
+app.post(
+  '/league/tournaments/:id/tee-groups/seed',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const tournamentId = Identifier.create(req.params.id, 'tournament id');
+    void Promise.all([
+      leagueRepositories.tournaments.findById(tournamentId),
+      leagueRepositories.teams.list()
+    ]).then(async ([tournament, teams]) => {
+      if (tournament?.organizationId.value !== req.organizationId) {
+        res.status(404).json({
+          code: 'league.tournament.not_found',
+          message: 'Tournament could not be resolved for this organization.'
+        });
+        return;
+      }
+      const organizationTeams = teams.filter(
+        (team) => team.organizationId.value === req.organizationId
+      );
+      if (organizationTeams.length !== 12) {
+        res.status(400).json({
+          code: 'league.tournament_tee_group.requires_twelve_teams',
+          message: 'Seeding tee groups requires exactly twelve organization teams.'
+        });
+        return;
+      }
+      const groups = createTeeGroups(tournament, organizationTeams);
+      await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
+      await Promise.all(
+        groups.map((group) => leagueRepositories.teeGroups.save(group))
+      );
+      res.status(201).json({ tournamentId: tournament.id.value, created: groups.length });
+    });
+  }
+);
+
+app.delete(
+  '/league/tournaments/:id/tee-groups',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const tournamentId = Identifier.create(req.params.id, 'tournament id');
+    void leagueRepositories.tournaments.findById(tournamentId).then(
+      async (tournament) => {
+        if (tournament?.organizationId.value !== req.organizationId) {
+          res.status(404).json({
+            code: 'league.tournament.not_found',
+            message: 'Tournament could not be resolved for this organization.'
+          });
+          return;
+        }
+        await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
+        res.json({});
+      }
+    );
+  }
+);
+
+app.post(
+  '/league/tournaments/tee-groups/seed-all',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    void Promise.all([
+      leagueRepositories.tournaments.list(),
+      leagueRepositories.teams.list()
+    ]).then(async ([tournaments, teams]) => {
+      const organizationTeams = teams.filter(
+        (team) => team.organizationId.value === req.organizationId
+      );
+      if (organizationTeams.length !== 12) {
+        res.status(400).json({
+          code: 'league.tournament_tee_group.requires_twelve_teams',
+          message: 'Seeding tee groups requires exactly twelve organization teams.'
+        });
+        return;
+      }
+      const eligibleTournaments = tournaments.filter(
+        (tournament) =>
+          tournament.organizationId.value === req.organizationId &&
+          tournament.type === 'fli'
+      );
+      for (const tournament of eligibleTournaments) {
+        await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
+        await Promise.all(
+          createTeeGroups(tournament, organizationTeams).map((group) =>
+            leagueRepositories.teeGroups.save(group)
+          )
+        );
+      }
+      res.status(201).json({ tournaments: eligibleTournaments.length, groups: eligibleTournaments.length * 6 });
     });
   }
 );
@@ -1001,6 +1287,99 @@ app.post(
           holeCount: course.holeCount
         });
       });
+    });
+  }
+);
+
+app.put(
+  '/league/courses/:id',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const body = req.body as { name?: string; holeCount?: number };
+    if (body.name === undefined || body.holeCount === undefined) {
+      res.status(400).json({
+        code: 'league.course.fields_required',
+        message: 'Name and hole count are required.'
+      });
+      return;
+    }
+    const courseId = Identifier.create(req.params.id, 'course id');
+    void Promise.all([
+      leagueRepositories.courses.findById(courseId),
+      leagueRepositories.holes.list()
+    ]).then(async ([existing, holes]) => {
+      if (existing?.organizationId.value !== req.organizationId) {
+        res.status(404).json({
+          code: 'league.course.not_found',
+          message: 'Course could not be resolved for this organization.'
+        });
+        return;
+      }
+      if (
+        holes.some(
+          (hole) =>
+            hole.courseId.equals(existing.id) && hole.number > body.holeCount
+        )
+      ) {
+        res.status(400).json({
+          code: 'league.course.hole_count_conflict',
+          message: 'Delete higher-numbered holes before reducing the course hole count.'
+        });
+        return;
+      }
+      try {
+        const course = Course.create({
+          id: existing.id.value,
+          organizationId: existing.organizationId.value,
+          name: body.name,
+          holeCount: body.holeCount
+        });
+        await leagueRepositories.courses.save(course);
+        res.json({
+          id: course.id.value,
+          organizationId: course.organizationId.value,
+          name: course.name,
+          holeCount: course.holeCount
+        });
+      } catch (error) {
+        res.status(400).json({
+          code: 'league.course.invalid_update',
+          message: error instanceof Error ? error.message : 'Course update failed.'
+        });
+      }
+    });
+  }
+);
+
+app.delete(
+  '/league/courses/:id',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const courseId = Identifier.create(req.params.id, 'course id');
+    void Promise.all([
+      leagueRepositories.courses.findById(courseId),
+      leagueRepositories.tournaments.list(),
+      leagueRepositories.holes.list()
+    ]).then(async ([course, tournaments, holes]) => {
+      if (course?.organizationId.value !== req.organizationId) {
+        res.status(404).json({
+          code: 'league.course.not_found',
+          message: 'Course could not be resolved for this organization.'
+        });
+        return;
+      }
+      if (
+        tournaments.some((tournament) => tournament.courseId?.equals(course.id)) ||
+        holes.some((hole) => hole.courseId.equals(course.id))
+      ) {
+        res.status(400).json({
+          code: 'league.course.has_references',
+          message: 'A course with tournaments or holes cannot be deleted.'
+        });
+        return;
+      }
+      await leagueRepositories.courses.deleteById(course.id);
+      res.status(204).end();
     });
   }
 );

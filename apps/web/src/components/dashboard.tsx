@@ -10,6 +10,8 @@ import {
   addTournament,
   createSeason,
   deleteSeason,
+  deleteCourse,
+  deleteHoles,
   deleteTournament,
   deleteTournaments,
   createDraft,
@@ -26,12 +28,17 @@ import {
   fetchTeams,
   fetchTournamentRegistrations,
   fetchTournamentTeeGroups,
+  clearTournamentTeeGroups,
   fetchTournaments,
   makeDraftPick,
   openDraft,
   seedFantasy,
   seedSixTournaments,
+  seedTurfParadiseLayout,
+  seedTournamentTeeGroups,
+  seedAllTournamentTeeGroups,
   updateTournament,
+  updateCourse,
   updateSeason,
   type CourseDto,
   type DepartmentDto,
@@ -383,6 +390,7 @@ function AddTournamentForm({
   const [error, setError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [seedingAll, setSeedingAll] = useState(false);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -620,6 +628,8 @@ function TournamentSetup({
 }) {
   const [tournamentId, setTournamentId] = useState('');
   const [groups, setGroups] = useState<readonly TournamentTeeGroupDto[]>([]);
+  const [seeding, setSeeding] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (tournamentId === '') {
@@ -630,6 +640,55 @@ function TournamentSetup({
   }, [tournamentId]);
 
   const tournament = tournaments.find((entry) => entry.id === tournamentId);
+
+  const seedGroups = async () => {
+    if (tournamentId === '') return;
+    setSeeding(true);
+    setError(undefined);
+    try {
+      await seedTournamentTeeGroups(tournamentId);
+      setGroups(await fetchTournamentTeeGroups(tournamentId));
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'Could not seed tee groups.'
+      );
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const clearGroups = async () => {
+    if (tournamentId === '') return;
+    setSeeding(true);
+    setError(undefined);
+    try {
+      await clearTournamentTeeGroups(tournamentId);
+      setGroups([]);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'Could not clear tee groups.'
+      );
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const seedAllGroups = async () => {
+    setSeedingAll(true);
+    setError(undefined);
+    try {
+      await seedAllTournamentTeeGroups();
+      if (tournamentId !== '') {
+        setGroups(await fetchTournamentTeeGroups(tournamentId));
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'Could not seed all groups.'
+      );
+    } finally {
+      setSeedingAll(false);
+    }
+  };
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border bg-muted/30 p-4">
@@ -645,6 +704,36 @@ function TournamentSetup({
           }))}
           placeholder="Select tournament"
         />
+        <Button
+          type="button"
+          variant="outline"
+          disabled={tournamentId === '' || seeding}
+          onClick={() => {
+            void seedGroups();
+          }}
+        >
+          {seeding ? 'Seeding groups...' : 'Seed tee groups'}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={tournamentId === '' || seeding}
+          onClick={() => {
+            void clearGroups();
+          }}
+        >
+          Clear groups
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={seedingAll || seeding}
+          onClick={() => {
+            void seedAllGroups();
+          }}
+        >
+          {seedingAll ? 'Seeding all...' : 'Seed all groups'}
+        </Button>
       </div>
       {tournament !== undefined && groups.length > 0 && (
         <div>
@@ -681,6 +770,7 @@ function TournamentSetup({
           No tee groups have been assigned to this tournament.
         </p>
       )}
+      {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
     </section>
   );
 }
@@ -856,6 +946,68 @@ function AddCourseForm({ onAdded }: { readonly onAdded?: () => void }) {
   );
 }
 
+function EditCourseModal({
+  course,
+  onClose,
+  onSaved
+}: {
+  readonly course: CourseDto;
+  readonly onClose: () => void;
+  readonly onSaved: () => void;
+}) {
+  const [name, setName] = useState(course.name);
+  const [holeCount, setHoleCount] = useState(course.holeCount.toString());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const save = async (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(undefined);
+    try {
+      await updateCourse(course.id, {
+        name,
+        holeCount: Number(holeCount)
+      });
+      onSaved();
+      onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not update course.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="w-full max-w-lg rounded-lg border bg-card p-6 text-card-foreground shadow-xl" role="dialog" aria-modal="true" aria-labelledby="edit-course-title">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Course settings</p>
+            <h2 id="edit-course-title" className="mt-1 text-xl font-semibold">Edit {course.name}</h2>
+          </div>
+          <Button variant="ghost" size="icon-sm" type="button" aria-label="Close edit course" onClick={onClose}><X /></Button>
+        </div>
+        <form onSubmit={(event) => { void save(event); }} className="mt-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-course-name">Name</Label>
+            <Input id="edit-course-name" value={name} onChange={(event) => { setName(event.target.value); }} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-course-holes">Holes</Label>
+            <Input id="edit-course-holes" type="number" min={1} value={holeCount} onChange={(event) => { setHoleCount(event.target.value); }} />
+          </div>
+          {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={name.trim().length < 2 || Number(holeCount) < 1 || saving}>{saving ? 'Saving...' : 'Save changes'}</Button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function AddHoleForm({
   courses,
   onAdded
@@ -868,6 +1020,8 @@ function AddHoleForm({
   const [par, setPar] = useState('3');
   const [error, setError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+  const [seedingLayout, setSeedingLayout] = useState(false);
+  const selectedCourse = courses.find((course) => course.id === courseId);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -890,6 +1044,22 @@ function AddHoleForm({
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const seedLayout = async () => {
+    if (courseId === '') return;
+    setSeedingLayout(true);
+    setError(undefined);
+    try {
+      await seedTurfParadiseLayout(courseId);
+      onAdded?.();
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'Could not seed Turf Paradise.'
+      );
+    } finally {
+      setSeedingLayout(false);
     }
   };
 
@@ -939,6 +1109,18 @@ function AddHoleForm({
       <Button type="submit" disabled={courseId === '' || submitting}>
         {submitting ? 'Adding…' : 'Add hole'}
       </Button>
+      {selectedCourse?.holeCount === 9 && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={seedingLayout || submitting}
+          onClick={() => {
+            void seedLayout();
+          }}
+        >
+          {seedingLayout ? 'Seeding layout...' : 'Seed Turf Paradise layout'}
+        </Button>
+      )}
       {error !== undefined && (
         <p className="text-sm text-destructive sm:basis-full">{error}</p>
       )}
@@ -1581,8 +1763,11 @@ export function Dashboard({
   const [data, setData] = useState<DashboardData | undefined>(undefined);
   const [editingSeason, setEditingSeason] = useState<SeasonDto | undefined>(undefined);
   const [editingTournament, setEditingTournament] = useState<TournamentDto | undefined>(undefined);
+  const [editingCourse, setEditingCourse] = useState<CourseDto | undefined>(undefined);
   const [selectedTournamentIds, setSelectedTournamentIds] = useState<readonly string[]>([]);
   const [deletingTournaments, setDeletingTournaments] = useState(false);
+  const [selectedHoleIds, setSelectedHoleIds] = useState<readonly string[]>([]);
+  const [deletingHoles, setDeletingHoles] = useState(false);
   const [creatingSeason, setCreatingSeason] = useState(false);
   const [seasonActionError, setSeasonActionError] = useState<string | undefined>(undefined);
   const [playerSort, setPlayerSort] = useState<{
@@ -1744,6 +1929,39 @@ export function Dashboard({
     }
   };
 
+  const toggleHole = (holeId: string) => {
+    setSelectedHoleIds((current) =>
+      current.includes(holeId)
+        ? current.filter((id) => id !== holeId)
+        : [...current, holeId]
+    );
+  };
+
+  const toggleAllHoles = () => {
+    const holeIds = data?.holes.map((hole) => hole.id) ?? [];
+    setSelectedHoleIds((current) =>
+      current.length === holeIds.length ? [] : holeIds
+    );
+  };
+
+  const deleteSelectedHoles = async () => {
+    if (selectedHoleIds.length === 0) return;
+    if (!window.confirm(`Delete ${selectedHoleIds.length.toString()} selected hole(s)?`)) return;
+    setDeletingHoles(true);
+    setSeasonActionError(undefined);
+    try {
+      await deleteHoles(selectedHoleIds);
+      setSelectedHoleIds([]);
+      onDepartmentsChanged?.();
+    } catch (caught) {
+      setSeasonActionError(
+        caught instanceof Error ? caught.message : 'Could not delete holes.'
+      );
+    } finally {
+      setDeletingHoles(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -1756,6 +1974,7 @@ export function Dashboard({
             <TabsTrigger value="players">Players</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
+            <TabsTrigger value="groups">Groups</TabsTrigger>
             <TabsTrigger value="courses">Courses</TabsTrigger>
             <TabsTrigger value="holes">Holes</TabsTrigger>
             <TabsTrigger value="registrations">Registrations</TabsTrigger>
@@ -1944,7 +2163,6 @@ export function Dashboard({
           </TabsContent>
           <TabsContent value="tournaments">
             <div className="flex flex-col gap-4">
-              <TournamentSetup tournaments={data?.tournaments ?? []} />
               <AddTournamentForm
                 courses={data?.courses ?? []}
                 seasons={data?.seasons ?? []}
@@ -2079,6 +2297,9 @@ export function Dashboard({
               {seasonActionError !== undefined && <p className="text-sm text-destructive">{seasonActionError}</p>}
             </div>
           </TabsContent>
+          <TabsContent value="groups">
+            <TournamentSetup tournaments={data?.tournaments ?? []} />
+          </TabsContent>
           <TabsContent value="courses">
             <div className="flex flex-col gap-4">
               <AddCourseForm onAdded={onDepartmentsChanged} />
@@ -2088,6 +2309,7 @@ export function Dashboard({
                     <TableHead>ID</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Holes</TableHead>
+                    <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -2096,10 +2318,38 @@ export function Dashboard({
                       <TableCell>{course.id}</TableCell>
                       <TableCell>{course.name}</TableCell>
                       <TableCell>{course.holeCount}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${course.name}`} onClick={() => { setEditingCourse(course); }}><Pencil /></Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Delete ${course.name}`}
+                            onClick={() => {
+                              if (!window.confirm(`Delete ${course.name}? Courses with holes or tournaments cannot be deleted.`)) return;
+                              void deleteCourse(course.id).then(
+                                () => onDepartmentsChanged?.(),
+                                (caught: unknown) => {
+                                  setSeasonActionError(caught instanceof Error ? caught.message : 'Could not delete course.');
+                                }
+                              );
+                            }}
+                          ><Trash2 /></Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              {editingCourse !== undefined && (
+                <EditCourseModal
+                  course={editingCourse}
+                  onClose={() => { setEditingCourse(undefined); }}
+                  onSaved={onDepartmentsChanged ?? (() => undefined)}
+                />
+              )}
+              {seasonActionError !== undefined && <p className="text-sm text-destructive">{seasonActionError}</p>}
             </div>
           </TabsContent>
           <TabsContent value="holes">
@@ -2108,22 +2358,74 @@ export function Dashboard({
                 courses={data?.courses ?? []}
                 onAdded={onDepartmentsChanged}
               />
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {selectedHoleIds.length.toString()} selected
+                </p>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={selectedHoleIds.length === 0 || deletingHoles}
+                  onClick={() => {
+                    void deleteSelectedHoles();
+                  }}
+                >
+                  <Trash2 />
+                  {deletingHoles ? 'Deleting...' : 'Delete selected'}
+                </Button>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all holes"
+                        checked={
+                          (data?.holes.length ?? 0) > 0 &&
+                          selectedHoleIds.length === data?.holes.length
+                        }
+                        onChange={toggleAllHoles}
+                        className="size-4 accent-primary"
+                      />
+                    </TableHead>
                     <TableHead>ID</TableHead>
                     <TableHead>Course</TableHead>
                     <TableHead>Number</TableHead>
+                    <TableHead>Name</TableHead>
                     <TableHead>Par</TableHead>
+                    <TableHead>Distance</TableHead>
+                    <TableHead>Blue basket</TableHead>
+                    <TableHead>Red basket</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {data?.holes.map((hole) => (
                     <TableRow key={hole.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${hole.id}`}
+                          checked={selectedHoleIds.includes(hole.id)}
+                          onChange={() => {
+                            toggleHole(hole.id);
+                          }}
+                          className="size-4 accent-primary"
+                        />
+                      </TableCell>
                       <TableCell>{hole.id}</TableCell>
                       <TableCell>{hole.courseId}</TableCell>
                       <TableCell>{hole.number}</TableCell>
+                      <TableCell>{hole.name ?? '—'}</TableCell>
                       <TableCell>{hole.par}</TableCell>
+                      <TableCell>
+                        {hole.distanceFeet === undefined
+                          ? '—'
+                          : `${hole.distanceFeet.toString()} ft`}
+                      </TableCell>
+                      <TableCell>{hole.blueBasketPosition ?? '—'}</TableCell>
+                      <TableCell>{hole.redBasketPosition ?? '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

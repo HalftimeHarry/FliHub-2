@@ -111,6 +111,11 @@ export interface HoleDto {
   readonly courseId: string;
   readonly number: number;
   readonly par: number;
+  readonly name?: string;
+  readonly description?: string;
+  readonly distanceFeet?: number;
+  readonly blueBasketPosition?: string;
+  readonly redBasketPosition?: string;
 }
 
 export interface TournamentRegistrationDto {
@@ -771,6 +776,32 @@ export const fetchTournamentTeeGroups = (tournamentId: string) =>
   getJson<readonly TournamentTeeGroupDto[]>(
     `/league/tournaments/${tournamentId}/tee-groups`
   );
+export const seedTournamentTeeGroups = (tournamentId: string) =>
+  postJson<{ readonly tournamentId: string; readonly created: number }>(
+    `/league/tournaments/${tournamentId}/tee-groups/seed`,
+    {}
+  );
+export const clearTournamentTeeGroups = async (
+  tournamentId: string
+): Promise<void> => {
+  const response = await fetch(`/league/tournaments/${tournamentId}/tee-groups`, {
+    method: 'DELETE',
+    headers: getOrganizationHeaders()
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(
+      error.message ?? `Request failed (${response.status.toString()})`
+    );
+  }
+};
+export const seedAllTournamentTeeGroups = () =>
+  postJson<{ readonly tournaments: number; readonly groups: number }>(
+    '/league/tournaments/tee-groups/seed-all',
+    {}
+  );
 export const fetchSeasons = () => getJson<readonly SeasonDto[]>('/league/seasons');
 export const fetchCourses = () =>
   getJson<readonly CourseDto[]>('/league/courses');
@@ -913,6 +944,10 @@ export const deleteTournaments = async (
   });
 };
 
+export const deleteHoles = async (holeIds: readonly string[]): Promise<void> => {
+  await postJson<undefined>('/league/holes/delete-many', { holeIds });
+};
+
 export const updateSeason = (
   seasonId: string,
   input: Omit<SeasonDto, 'id' | 'leagueId'>
@@ -941,6 +976,26 @@ export const addCourse = (input: {
   readonly name: string;
   readonly holeCount?: number;
 }) => postJson<CourseDto>('/league/courses', input);
+
+export const updateCourse = (
+  courseId: string,
+  input: Pick<CourseDto, 'name' | 'holeCount'>
+) => putJson<CourseDto>(`/league/courses/${courseId}`, input);
+
+export const deleteCourse = async (courseId: string): Promise<void> => {
+  const response = await fetch(`/league/courses/${courseId}`, {
+    method: 'DELETE',
+    headers: getOrganizationHeaders()
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(
+      error.message ?? `Request failed (${response.status.toString()})`
+    );
+  }
+};
 
 export const addTeam = (input: {
   readonly name: string;
@@ -974,6 +1029,12 @@ export const addHole = (input: {
   readonly number?: number;
   readonly par?: number;
 }) => postJson<HoleDto>('/league/holes', input);
+
+export const seedTurfParadiseLayout = (courseId: string) =>
+  postJson<{ readonly courseId: string; readonly created: number }>(
+    `/league/courses/${courseId}/turf-paradise-layout`,
+    {}
+  );
 
 export interface FantasySeedResult {
   readonly organizationId: string;

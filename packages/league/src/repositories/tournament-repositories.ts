@@ -64,6 +64,7 @@ export interface TournamentRegistrationRepository {
 
 export interface TournamentTeeGroupRepository {
   save(group: TournamentTeeGroup): Promise<void>;
+  deleteForTournament(tournamentId: Identifier): Promise<void>;
   listForTournament(
     tournamentId: Identifier
   ): Promise<readonly TournamentTeeGroup[]>;
@@ -141,6 +142,11 @@ export class InMemoryTournamentRegistrationRepository implements TournamentRegis
 export class InMemoryTournamentTeeGroupRepository
   extends InMemoryRepository<TournamentTeeGroup>
   implements TournamentTeeGroupRepository {
+  public async deleteForTournament(tournamentId: Identifier): Promise<void> {
+    const groups = await this.listForTournament(tournamentId);
+    await Promise.all(groups.map((group) => this.deleteById(group.id)));
+  }
+
   public async listForTournament(
     tournamentId: Identifier
   ): Promise<readonly TournamentTeeGroup[]> {
