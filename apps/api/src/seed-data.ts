@@ -18,13 +18,19 @@ import {
   Hole,
   InMemoryCourseRepository,
   InMemoryHoleRepository,
+  InMemoryLeagueRepository,
   InMemoryPlayerRepository,
+  InMemorySeasonRepository,
   InMemoryTeamRepository,
   InMemoryTournamentRegistrationRepository,
+  InMemoryTournamentTeeGroupRepository,
   InMemoryTournamentRepository,
+  League,
   Player,
+  Season,
   Team,
-  Tournament
+  Tournament,
+  TournamentTeeGroup
 } from '@flihub/league';
 
 const defaultOrganizationSeeds = [
@@ -136,6 +142,47 @@ export const createBusinessRepositories = () => ({
 });
 
 export const createLeagueRepositories = () => ({
+  leagues: new InMemoryLeagueRepository([
+    League.create({
+      id: 'fgl-league',
+      organizationId: 'fgl',
+      name: 'FLI Golf League',
+      format: 'fli-golf-standard',
+      paysTeams: true
+    }),
+    League.create({
+      id: 'example-school-league',
+      organizationId: 'org-2',
+      name: 'Example School League'
+    })
+  ]),
+  seasons: new InMemorySeasonRepository([
+    Season.create({
+      id: 'summer-season',
+      leagueId: 'fgl-league',
+      name: 'Summer Season',
+      startsOn: new Date('2026-05-01T00:00:00.000Z'),
+      endsOn: new Date('2026-08-31T23:59:59.999Z'),
+      yearlyPurseMinorUnits: 400_000_000,
+      status: 'current'
+    }),
+    Season.create({
+      id: 'summer-2-season',
+      leagueId: 'fgl-league',
+      name: 'Summer 2 Season',
+      startsOn: new Date('2027-06-01T00:00:00.000Z'),
+      endsOn: new Date('2027-08-31T23:59:59.999Z'),
+      yearlyPurseMinorUnits: 800_000_000,
+      status: 'upcoming'
+    }),
+    Season.create({
+      id: 'example-school-season',
+      leagueId: 'example-school-league',
+      name: 'School Season',
+      startsOn: new Date('2026-09-01T00:00:00.000Z'),
+      endsOn: new Date('2026-11-30T23:59:59.999Z')
+    })
+  ]),
   players: new InMemoryPlayerRepository([
     Player.create({
       id: 'simon-lizotte',
@@ -402,27 +449,66 @@ export const createLeagueRepositories = () => ({
   ]),
   tournaments: new InMemoryTournamentRepository([
     Tournament.create({
-      id: 'tournament-1',
+      id: 'sunset-open',
       organizationId: 'fgl',
-      seasonId: 'season-1',
-      name: 'Spring Open',
-      capacity: 32,
-      courseId: 'course-1'
+      seasonId: 'summer-season',
+      name: 'Sunset Open',
+      type: 'fli',
+      scheduledOn: new Date('2026-06-02T22:00:00.000Z'),
+      courseId: 'course-4'
     }),
     Tournament.create({
-      id: 'tournament-2',
+      id: 'summer-championship',
       organizationId: 'fgl',
-      seasonId: 'season-1',
+      seasonId: 'summer-season',
       name: 'Summer Championship',
-      capacity: 16,
-      courseId: 'course-2'
+      type: 'fli',
+      scheduledOn: new Date('2026-08-11T22:00:00.000Z'),
+      courseId: 'course-4'
     }),
     Tournament.create({
-      id: 'tournament-3',
+      id: 'canyon-heat-cup',
+      organizationId: 'fgl',
+      seasonId: 'summer-2-season',
+      name: 'Canyon Heat Cup',
+      type: 'fli',
+      scheduledOn: new Date('2027-06-16T22:00:00.000Z'),
+      courseId: 'course-4'
+    }),
+    Tournament.create({
+      id: 'summer-solstice-invitational',
+      organizationId: 'fgl',
+      seasonId: 'summer-2-season',
+      name: 'Summer Solstice Invitational',
+      type: 'fli',
+      scheduledOn: new Date('2027-06-30T22:00:00.000Z'),
+      courseId: 'course-4'
+    }),
+    Tournament.create({
+      id: 'high-desert-classic',
+      organizationId: 'fgl',
+      seasonId: 'summer-2-season',
+      name: 'High Desert Classic',
+      type: 'fli',
+      scheduledOn: new Date('2027-07-14T22:00:00.000Z'),
+      courseId: 'course-4'
+    }),
+    Tournament.create({
+      id: 'mesa-flight-showdown',
+      organizationId: 'fgl',
+      seasonId: 'summer-2-season',
+      name: 'Mesa Flight Showdown',
+      type: 'fli',
+      scheduledOn: new Date('2027-07-28T22:00:00.000Z'),
+      courseId: 'course-4'
+    }),
+    Tournament.create({
+      id: 'course-community-cup',
       organizationId: 'org-2',
-      seasonId: 'season-2',
+      seasonId: 'example-school-season',
       name: 'Course Community Cup',
-      capacity: 24,
+      type: 'multi-round',
+      scheduledOn: new Date('2026-10-15T22:00:00.000Z'),
       courseId: 'course-3'
     })
   ]),
@@ -440,6 +526,12 @@ export const createLeagueRepositories = () => ({
       holeCount: 18
     }),
     Course.create({
+      id: 'course-4',
+      organizationId: 'fgl',
+      name: 'Turf Paradise',
+      holeCount: 9
+    }),
+    Course.create({
       id: 'course-3',
       organizationId: 'org-2',
       name: 'Campus Greens',
@@ -450,6 +542,7 @@ export const createLeagueRepositories = () => ({
     [
       { courseId: 'course-1', count: 18 },
       { courseId: 'course-2', count: 18 },
+      { courseId: 'course-4', count: 9 },
       { courseId: 'course-3', count: 9 }
     ].flatMap(({ courseId, count }) =>
       Array.from({ length: count }, (_, index) =>
@@ -462,6 +555,50 @@ export const createLeagueRepositories = () => ({
       )
     )
   ),
+  teeGroups: new InMemoryTournamentTeeGroupRepository([
+    TournamentTeeGroup.create({
+      id: 'sunset-open-group-1',
+      tournamentId: 'sunset-open',
+      number: 1,
+      teeTime: '3:00 PM PST',
+      teamIds: ['ace-makers', 'midas-touch']
+    }),
+    TournamentTeeGroup.create({
+      id: 'sunset-open-group-2',
+      tournamentId: 'sunset-open',
+      number: 2,
+      teeTime: '3:10 PM PST',
+      teamIds: ['birdie-storm', 'hyzer-heros']
+    }),
+    TournamentTeeGroup.create({
+      id: 'sunset-open-group-3',
+      tournamentId: 'sunset-open',
+      number: 3,
+      teeTime: '3:20 PM PST',
+      teamIds: ['chain-breakers', 'huk-a-mania']
+    }),
+    TournamentTeeGroup.create({
+      id: 'sunset-open-group-4',
+      tournamentId: 'sunset-open',
+      number: 4,
+      teeTime: '3:30 PM PST',
+      teamIds: ['chain-seekers', 'glide-masters']
+    }),
+    TournamentTeeGroup.create({
+      id: 'sunset-open-group-5',
+      tournamentId: 'sunset-open',
+      number: 5,
+      teeTime: '3:40 PM PST',
+      teamIds: ['disc-dynasty', 'flight-squad']
+    }),
+    TournamentTeeGroup.create({
+      id: 'sunset-open-group-6',
+      tournamentId: 'sunset-open',
+      number: 6,
+      teeTime: '3:50 PM PST',
+      teamIds: ['disc-jesters', 'fairway-bombers']
+    })
+  ]),
   registrations: new InMemoryTournamentRegistrationRepository()
 });
 

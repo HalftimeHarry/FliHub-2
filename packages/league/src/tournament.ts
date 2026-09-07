@@ -6,13 +6,16 @@ export type TournamentStatus =
   | 'completed'
   | 'cancelled';
 
+export type TournamentType = 'fli' | 'multi-round';
+
 export class Tournament {
   private constructor(
     public readonly id: Identifier,
     public readonly organizationId: Identifier,
     public readonly seasonId: Identifier,
     public readonly name: string,
-    public readonly capacity: number,
+    public readonly type: TournamentType,
+    public readonly scheduledOn: Date | undefined,
     public readonly status: TournamentStatus,
     public readonly courseId: Identifier | undefined
   ) {}
@@ -22,7 +25,8 @@ export class Tournament {
     organizationId: string;
     seasonId: string;
     name: string;
-    capacity: number;
+    type?: TournamentType;
+    scheduledOn?: Date;
     status?: TournamentStatus;
     courseId?: string;
   }): Tournament {
@@ -35,28 +39,18 @@ export class Tournament {
       );
     }
 
-    if (!Number.isInteger(input.capacity) || input.capacity < 1) {
-      throw new DomainError(
-        'league.tournament.invalid_capacity',
-        'Tournament capacity must be a positive integer.'
-      );
-    }
-
     return new Tournament(
       Identifier.create(input.id, 'tournament id'),
       Identifier.create(input.organizationId, 'organization id'),
       Identifier.create(input.seasonId, 'season id'),
       name,
-      input.capacity,
+      input.type ?? 'fli',
+      input.scheduledOn === undefined ? undefined : new Date(input.scheduledOn),
       input.status ?? 'scheduled',
       input.courseId === undefined
         ? undefined
         : Identifier.create(input.courseId, 'course id')
     );
-  }
-
-  public hasCapacity(currentRegistrationCount: number): boolean {
-    return currentRegistrationCount < this.capacity;
   }
 
   public isRegistrationOpen(): boolean {

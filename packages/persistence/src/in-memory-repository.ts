@@ -25,6 +25,11 @@ export class InMemoryRepository<
     return Promise.resolve();
   }
 
+  public deleteById(id: Identifier): Promise<void> {
+    this.records.delete(id.value);
+    return Promise.resolve();
+  }
+
   public list(): Promise<readonly Entity[]> {
     return Promise.resolve([...this.records.values()]);
   }

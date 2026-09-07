@@ -1,4 +1,5 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
+import { ArrowDownUp, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   addCourse,
   addFantasyLeague,
@@ -7,6 +8,10 @@ import {
   addOrganizationDepartment,
   addTeam,
   addTournament,
+  createSeason,
+  deleteSeason,
+  deleteTournament,
+  deleteTournaments,
   createDraft,
   fetchCourses,
   fetchDepartments,
@@ -17,12 +22,17 @@ import {
   fetchPlayers,
   fetchProjects,
   fetchReimbursementClaims,
+  fetchSeasons,
   fetchTeams,
   fetchTournamentRegistrations,
+  fetchTournamentTeeGroups,
   fetchTournaments,
   makeDraftPick,
   openDraft,
   seedFantasy,
+  seedSixTournaments,
+  updateTournament,
+  updateSeason,
   type CourseDto,
   type DepartmentDto,
   type DraftRoomDto,
@@ -32,8 +42,10 @@ import {
   type PlayerDto,
   type ProjectDto,
   type ReimbursementClaimDto,
+  type SeasonDto,
   type TeamDto,
   type TournamentDto,
+  type TournamentTeeGroupDto,
   type TournamentRegistrationDto
 } from '@/lib/api.js';
 import { Badge } from '@/components/ui/badge.js';
@@ -64,6 +76,7 @@ import {
 
 interface DashboardData {
   readonly players: readonly PlayerDto[];
+  readonly seasons: readonly SeasonDto[];
   readonly teams: readonly TeamDto[];
   readonly tournaments: readonly TournamentDto[];
   readonly courses: readonly CourseDto[];
@@ -76,6 +89,23 @@ interface DashboardData {
   readonly fantasyTeams: readonly FantasyTeamDto[];
   readonly drafts: readonly DraftRoomDto[];
 }
+
+type PlayerSortKey = 'id' | 'displayName' | 'team' | 'playerType' | 'active';
+type TournamentSortKey =
+  | 'id'
+  | 'name'
+  | 'seasonId'
+  | 'scheduledOn'
+  | 'courseId'
+  | 'type';
+
+const getPlayerTeamName = (
+  playerId: string,
+  teams: readonly TeamDto[]
+): string =>
+  teams.find(
+    (team) => team.malePlayerId === playerId || team.femalePlayerId === playerId
+  )?.name ?? '';
 
 function AddDepartmentForm({
   onAdded
@@ -142,28 +172,232 @@ function AddDepartmentForm({
   );
 }
 
+function EditSeasonModal({
+  season,
+  onClose,
+  onSaved
+}: {
+  readonly season: SeasonDto;
+  readonly onClose: () => void;
+  readonly onSaved: () => void;
+}) {
+  const [name, setName] = useState(season.name);
+  const [startsOn, setStartsOn] = useState(season.startsOn.slice(0, 10));
+  const [endsOn, setEndsOn] = useState(season.endsOn.slice(0, 10));
+  const [yearlyPurse, setYearlyPurse] = useState(
+    (season.yearlyPurseMinorUnits / 100).toString()
+  );
+  const [status, setStatus] = useState(season.status);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const save = async (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(undefined);
+    try {
+      await updateSeason(season.id, {
+        name,
+        startsOn: new Date(`${startsOn}T00:00:00.000Z`).toISOString(),
+        endsOn: new Date(`${endsOn}T23:59:59.999Z`).toISOString(),
+        yearlyPurseMinorUnits: Math.round((Number(yearlyPurse) || 0) * 100),
+        yearlyPurseCurrency: season.yearlyPurseCurrency,
+        status
+      });
+      onSaved();
+      onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not update season.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        className="w-full max-w-lg rounded-lg border bg-card p-6 text-card-foreground shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-season-title"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Season settings
+            </p>
+            <h2 id="edit-season-title" className="mt-1 text-xl font-semibold">
+              Edit {season.name}
+            </h2>
+          </div>
+          <Button variant="ghost" size="icon-sm" type="button" aria-label="Close edit season" onClick={onClose}>
+            <X />
+          </Button>
+        </div>
+        <form onSubmit={(event) => { void save(event); }} className="mt-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-season-name">Name</Label>
+            <Input id="edit-season-name" value={name} onChange={(event) => { setName(event.target.value); }} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-season-start">Starts</Label>
+              <Input id="edit-season-start" type="date" value={startsOn} onChange={(event) => { setStartsOn(event.target.value); }} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-season-end">Ends</Label>
+              <Input id="edit-season-end" type="date" value={endsOn} onChange={(event) => { setEndsOn(event.target.value); }} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-season-purse">Yearly purse ({season.yearlyPurseCurrency})</Label>
+            <Input id="edit-season-purse" type="number" min={0} step="1" value={yearlyPurse} onChange={(event) => { setYearlyPurse(event.target.value); }} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-season-status">Status</Label>
+            <ObjectSelect
+              id="edit-season-status"
+              value={status}
+              onValueChange={(value) => {
+                setStatus(value as SeasonDto['status']);
+              }}
+              options={[
+                { id: 'current', label: 'Current' },
+                { id: 'upcoming', label: 'Upcoming' },
+                { id: 'completed', label: 'Completed' }
+              ]}
+              placeholder="Select status"
+            />
+          </div>
+          {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={name.trim().length < 2 || startsOn === '' || endsOn === '' || saving}>
+              {saving ? 'Saving...' : 'Save changes'}
+            </Button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function NewSeasonModal({
+  leagueId,
+  onClose,
+  onSaved
+}: {
+  readonly leagueId: string;
+  readonly onClose: () => void;
+  readonly onSaved: () => void;
+}) {
+  const [name, setName] = useState('');
+  const [startsOn, setStartsOn] = useState('');
+  const [endsOn, setEndsOn] = useState('');
+  const [yearlyPurse, setYearlyPurse] = useState('0');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const save = async (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(undefined);
+    try {
+      await createSeason({
+        leagueId,
+        name,
+        startsOn: new Date(`${startsOn}T00:00:00.000Z`).toISOString(),
+        endsOn: new Date(`${endsOn}T23:59:59.999Z`).toISOString(),
+        yearlyPurseMinorUnits: Math.round((Number(yearlyPurse) || 0) * 100),
+        yearlyPurseCurrency: 'USD',
+        status: 'upcoming'
+      });
+      onSaved();
+      onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not create season.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="w-full max-w-lg rounded-lg border bg-card p-6 text-card-foreground shadow-xl" role="dialog" aria-modal="true" aria-labelledby="new-season-title">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Season settings</p>
+            <h2 id="new-season-title" className="mt-1 text-xl font-semibold">New season</h2>
+          </div>
+          <Button variant="ghost" size="icon-sm" type="button" aria-label="Close new season" onClick={onClose}><X /></Button>
+        </div>
+        <form onSubmit={(event) => { void save(event); }} className="mt-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="new-season-name">Name</Label>
+            <Input id="new-season-name" placeholder="e.g. Fall Season" value={name} onChange={(event) => { setName(event.target.value); }} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="new-season-start">Starts</Label>
+              <Input id="new-season-start" type="date" value={startsOn} onChange={(event) => { setStartsOn(event.target.value); }} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="new-season-end">Ends</Label>
+              <Input id="new-season-end" type="date" value={endsOn} onChange={(event) => { setEndsOn(event.target.value); }} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="new-season-purse">Yearly purse (USD)</Label>
+            <Input id="new-season-purse" type="number" min={0} step="1" value={yearlyPurse} onChange={(event) => { setYearlyPurse(event.target.value); }} />
+          </div>
+          {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={name.trim().length < 2 || startsOn === '' || endsOn === '' || saving}>{saving ? 'Creating...' : 'Create season'}</Button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function AddTournamentForm({
   courses,
+  seasons,
   onAdded
 }: {
   readonly courses: readonly CourseDto[];
+  readonly seasons: readonly SeasonDto[];
   readonly onAdded?: () => void;
 }) {
   const [name, setName] = useState('');
-  const [capacity, setCapacity] = useState('32');
+  const [seasonId, setSeasonId] = useState('');
   const [courseId, setCourseId] = useState('');
+  const [type, setType] = useState<'fli' | 'multi-round'>('fli');
   const [error, setError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (seasonId === '' || courseId === '') {
+      setError('Select a season and course first.');
+      return;
+    }
     setSubmitting(true);
     setError(undefined);
     try {
       await addTournament({
         name,
-        capacity: Number(capacity) || 32,
-        courseId: courseId === '' ? undefined : courseId
+        seasonId,
+        courseId,
+        type
       });
       setName('');
       onAdded?.();
@@ -173,6 +407,25 @@ function AddTournamentForm({
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const seedSix = async () => {
+    if (seasonId === '' || courseId === '') {
+      setError('Select a season and course first.');
+      return;
+    }
+    setSeeding(true);
+    setError(undefined);
+    try {
+      await seedSixTournaments({ seasonId, courseId, type });
+      onAdded?.();
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'Could not seed tournaments.'
+      );
+    } finally {
+      setSeeding(false);
     }
   };
 
@@ -194,17 +447,19 @@ function AddTournamentForm({
           }}
         />
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="new-tournament-capacity">Capacity</Label>
-        <Input
-          id="new-tournament-capacity"
-          type="number"
-          min={1}
-          className="w-24"
-          value={capacity}
-          onChange={(event) => {
-            setCapacity(event.target.value);
+      <div className="flex flex-1 flex-col gap-2">
+        <Label htmlFor="new-tournament-type">Type</Label>
+        <ObjectSelect
+          id="new-tournament-type"
+          value={type}
+          onValueChange={(value) => {
+            setType(value as 'fli' | 'multi-round');
           }}
+          options={[
+            { id: 'fli', label: 'FLI (9 holes played twice)' },
+            { id: 'multi-round', label: 'Multi Round (full course)' }
+          ]}
+          placeholder="Select type"
         />
       </div>
       <div className="flex flex-col gap-2">
@@ -214,16 +469,219 @@ function AddTournamentForm({
             value={courseId}
             onValueChange={setCourseId}
             options={courses.map((course) => ({ id: course.id, label: course.name }))}
-            placeholder="No course"
+            placeholder="Select course"
           />
       </div>
-      <Button type="submit" disabled={name.trim().length < 2 || submitting}>
+      <div className="flex flex-1 flex-col gap-2">
+        <Label htmlFor="new-tournament-season">Season</Label>
+        <ObjectSelect
+          id="new-tournament-season"
+          value={seasonId}
+          onValueChange={setSeasonId}
+          options={seasons.map((season) => ({
+            id: season.id,
+            label: season.name
+          }))}
+          placeholder="Select season"
+        />
+      </div>
+      <Button
+        type="submit"
+        disabled={
+          name.trim().length < 2 ||
+          seasonId === '' ||
+          courseId === '' ||
+          submitting ||
+          seeding
+        }
+      >
         {submitting ? 'Adding…' : 'Add tournament'}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={seasonId === '' || courseId === '' || submitting || seeding}
+        onClick={() => {
+          void seedSix();
+        }}
+      >
+        {seeding ? 'Seeding 6...' : 'Seed 6'}
       </Button>
       {error !== undefined && (
         <p className="text-sm text-destructive sm:basis-full">{error}</p>
       )}
     </form>
+  );
+}
+
+function EditTournamentModal({
+  tournament,
+  seasons,
+  courses,
+  onClose,
+  onSaved
+}: {
+  readonly tournament: TournamentDto;
+  readonly seasons: readonly SeasonDto[];
+  readonly courses: readonly CourseDto[];
+  readonly onClose: () => void;
+  readonly onSaved: () => void;
+}) {
+  const [name, setName] = useState(tournament.name);
+  const [seasonId, setSeasonId] = useState(tournament.seasonId);
+  const [courseId, setCourseId] = useState(tournament.courseId ?? '');
+  const [type, setType] = useState(tournament.type);
+  const [scheduledOn, setScheduledOn] = useState(
+    tournament.scheduledOn?.slice(0, 10) ?? ''
+  );
+  const [status, setStatus] = useState(tournament.status ?? 'scheduled');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  const save = async (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setError(undefined);
+    try {
+      await updateTournament(tournament.id, {
+        name,
+        seasonId,
+        courseId,
+        type,
+        scheduledOn:
+          scheduledOn === ''
+            ? undefined
+            : new Date(`${scheduledOn}T22:00:00.000Z`).toISOString(),
+        status
+      });
+      onSaved();
+      onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not update tournament.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="w-full max-w-lg rounded-lg border bg-card p-6 text-card-foreground shadow-xl" role="dialog" aria-modal="true" aria-labelledby="edit-tournament-title">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tournament settings</p>
+            <h2 id="edit-tournament-title" className="mt-1 text-xl font-semibold">Edit {tournament.name}</h2>
+          </div>
+          <Button variant="ghost" size="icon-sm" type="button" aria-label="Close edit tournament" onClick={onClose}><X /></Button>
+        </div>
+        <form onSubmit={(event) => { void save(event); }} className="mt-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-tournament-name">Name</Label>
+            <Input id="edit-tournament-name" value={name} onChange={(event) => { setName(event.target.value); }} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-tournament-season">Season</Label>
+              <ObjectSelect id="edit-tournament-season" value={seasonId} onValueChange={setSeasonId} options={seasons.map((season) => ({ id: season.id, label: season.name }))} placeholder="Select season" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-tournament-course">Course</Label>
+              <ObjectSelect id="edit-tournament-course" value={courseId} onValueChange={setCourseId} options={courses.map((course) => ({ id: course.id, label: course.name }))} placeholder="Select course" />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-tournament-type">Type</Label>
+              <ObjectSelect id="edit-tournament-type" value={type} onValueChange={(value) => { setType(value as TournamentDto['type']); }} options={[{ id: 'fli', label: 'FLI (9 holes played twice)' }, { id: 'multi-round', label: 'Multi Round (full course)' }]} placeholder="Select type" />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="edit-tournament-status">Status</Label>
+              <ObjectSelect id="edit-tournament-status" value={status} onValueChange={(value) => { setStatus(value as NonNullable<TournamentDto['status']>); }} options={[{ id: 'scheduled', label: 'Scheduled' }, { id: 'in_progress', label: 'In progress' }, { id: 'completed', label: 'Completed' }, { id: 'cancelled', label: 'Cancelled' }]} placeholder="Select status" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-tournament-date">Date</Label>
+            <Input id="edit-tournament-date" type="date" value={scheduledOn} onChange={(event) => { setScheduledOn(event.target.value); }} />
+          </div>
+          {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={name.trim().length < 2 || seasonId === '' || courseId === '' || saving}>{saving ? 'Saving...' : 'Save changes'}</Button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function TournamentSetup({
+  tournaments
+}: {
+  readonly tournaments: readonly TournamentDto[];
+}) {
+  const [tournamentId, setTournamentId] = useState('');
+  const [groups, setGroups] = useState<readonly TournamentTeeGroupDto[]>([]);
+
+  useEffect(() => {
+    if (tournamentId === '') {
+      setGroups([]);
+      return;
+    }
+    void fetchTournamentTeeGroups(tournamentId).then(setGroups);
+  }, [tournamentId]);
+
+  const tournament = tournaments.find((entry) => entry.id === tournamentId);
+
+  return (
+    <section className="flex flex-col gap-4 rounded-lg border bg-muted/30 p-4">
+      <div className="flex flex-col gap-2 sm:max-w-sm">
+        <Label htmlFor="tournament-setup">Tournament setup</Label>
+        <ObjectSelect
+          id="tournament-setup"
+          value={tournamentId}
+          onValueChange={setTournamentId}
+          options={tournaments.map((entry) => ({
+            id: entry.id,
+            label: entry.name
+          }))}
+          placeholder="Select tournament"
+        />
+      </div>
+      {tournament !== undefined && groups.length > 0 && (
+        <div>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-medium">{tournament.name}</h3>
+            <p className="text-sm text-muted-foreground">
+              First tee {groups[0].teeTime}
+            </p>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {tournament.scheduledOn === undefined
+              ? 'Season event'
+              : new Date(tournament.scheduledOn).toLocaleDateString()}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {groups.map((group) => (
+              <div key={group.id} className="border bg-background p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-medium">Group {group.number}</p>
+                  <Badge variant="outline">{group.teeTime}</Badge>
+                </div>
+                <ul className="mt-3 flex flex-col gap-1 text-sm text-muted-foreground">
+                  {group.teamNames.map((teamName) => (
+                    <li key={teamName}>{teamName}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {tournament !== undefined && groups.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No tee groups have been assigned to this tournament.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -1121,12 +1579,27 @@ export function Dashboard({
   readonly onDepartmentsChanged?: () => void;
 }) {
   const [data, setData] = useState<DashboardData | undefined>(undefined);
+  const [editingSeason, setEditingSeason] = useState<SeasonDto | undefined>(undefined);
+  const [editingTournament, setEditingTournament] = useState<TournamentDto | undefined>(undefined);
+  const [selectedTournamentIds, setSelectedTournamentIds] = useState<readonly string[]>([]);
+  const [deletingTournaments, setDeletingTournaments] = useState(false);
+  const [creatingSeason, setCreatingSeason] = useState(false);
+  const [seasonActionError, setSeasonActionError] = useState<string | undefined>(undefined);
+  const [playerSort, setPlayerSort] = useState<{
+    key: PlayerSortKey;
+    direction: 'ascending' | 'descending';
+  }>({ key: 'displayName', direction: 'ascending' });
+  const [tournamentSort, setTournamentSort] = useState<{
+    key: TournamentSortKey;
+    direction: 'ascending' | 'descending';
+  }>({ key: 'scheduledOn', direction: 'descending' });
 
   useEffect(() => {
     let cancelled = false;
 
     void Promise.all([
       fetchPlayers(),
+      fetchSeasons(),
       fetchTeams(),
       fetchTournaments(),
       fetchCourses(),
@@ -1141,6 +1614,7 @@ export function Dashboard({
     ]).then(
       ([
         players,
+        seasons,
         teams,
         tournaments,
         courses,
@@ -1156,6 +1630,7 @@ export function Dashboard({
         if (!cancelled) {
           setData({
             players,
+            seasons,
             teams,
             tournaments,
             courses,
@@ -1177,14 +1652,107 @@ export function Dashboard({
     };
   }, [refreshKey]);
 
+  const sortPlayers = (key: PlayerSortKey) => {
+    setPlayerSort((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === 'ascending'
+          ? 'descending'
+          : 'ascending'
+    }));
+  };
+
+  const sortedPlayers = [...(data?.players ?? [])].sort((left, right) => {
+    const leftValue =
+      playerSort.key === 'team'
+        ? getPlayerTeamName(left.id, data?.teams ?? [])
+        : playerSort.key === 'active'
+          ? left.active ? 'active' : 'inactive'
+          : left[playerSort.key] ?? '';
+    const rightValue =
+      playerSort.key === 'team'
+        ? getPlayerTeamName(right.id, data?.teams ?? [])
+        : playerSort.key === 'active'
+          ? right.active ? 'active' : 'inactive'
+          : right[playerSort.key] ?? '';
+    const comparison = String(leftValue).localeCompare(String(rightValue));
+    return playerSort.direction === 'ascending' ? comparison : -comparison;
+  });
+
+  const sortTournaments = (key: TournamentSortKey) => {
+    setTournamentSort((current) => ({
+      key,
+      direction:
+        current.key === key && current.direction === 'ascending'
+          ? 'descending'
+          : 'ascending'
+    }));
+  };
+
+  const sortedTournaments = [...(data?.tournaments ?? [])].sort(
+    (left, right) => {
+      const leftValue =
+        tournamentSort.key === 'scheduledOn'
+          ? left.scheduledOn === undefined
+            ? 0
+            : new Date(left.scheduledOn).getTime()
+          : left[tournamentSort.key] ?? '';
+      const rightValue =
+        tournamentSort.key === 'scheduledOn'
+          ? right.scheduledOn === undefined
+            ? 0
+            : new Date(right.scheduledOn).getTime()
+          : right[tournamentSort.key] ?? '';
+      const comparison =
+        typeof leftValue === 'number' && typeof rightValue === 'number'
+          ? leftValue - rightValue
+          : leftValue.localeCompare(rightValue);
+      return tournamentSort.direction === 'ascending' ? comparison : -comparison;
+    }
+  );
+
+  const toggleTournament = (tournamentId: string) => {
+    setSelectedTournamentIds((current) =>
+      current.includes(tournamentId)
+        ? current.filter((id) => id !== tournamentId)
+        : [...current, tournamentId]
+    );
+  };
+
+  const toggleAllTournaments = () => {
+    const tournamentIds = data?.tournaments.map((tournament) => tournament.id) ?? [];
+    setSelectedTournamentIds((current) =>
+      current.length === tournamentIds.length ? [] : tournamentIds
+    );
+  };
+
+  const deleteSelectedTournaments = async () => {
+    if (selectedTournamentIds.length === 0) return;
+    if (!window.confirm(`Delete ${selectedTournamentIds.length.toString()} selected tournament(s)? Tournaments with registrations cannot be deleted.`)) return;
+    setDeletingTournaments(true);
+    setSeasonActionError(undefined);
+    try {
+      await deleteTournaments(selectedTournamentIds);
+      setSelectedTournamentIds([]);
+      onDepartmentsChanged?.();
+    } catch (caught) {
+      setSeasonActionError(
+        caught instanceof Error ? caught.message : 'Could not delete tournaments.'
+      );
+    } finally {
+      setDeletingTournaments(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Dashboard</CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="players">
+        <Tabs defaultValue="seasons">
           <TabsList>
+            <TabsTrigger value="seasons">Seasons</TabsTrigger>
             <TabsTrigger value="players">Players</TabsTrigger>
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
@@ -1201,17 +1769,47 @@ export function Dashboard({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
+                  {[
+                    ['id', 'ID'],
+                    ['displayName', 'Name'],
+                    ['team', 'Team'],
+                    ['playerType', 'Type'],
+                    ['active', 'Status']
+                  ].map(([key, label]) => {
+                    const sortKey = key as PlayerSortKey;
+                    const isSorted = playerSort.key === sortKey;
+                    return (
+                      <TableHead
+                        key={sortKey}
+                        aria-sort={
+                          isSorted ? playerSort.direction : 'none'
+                        }
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="-ml-3"
+                          onClick={() => {
+                            sortPlayers(sortKey);
+                          }}
+                        >
+                          {label}
+                          <ArrowDownUp />
+                        </Button>
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.players.map((player) => (
+                {sortedPlayers.map((player) => (
                   <TableRow key={player.id}>
                     <TableCell>{player.id}</TableCell>
                     <TableCell>{player.displayName}</TableCell>
+                    <TableCell>
+                      {getPlayerTeamName(player.id, data?.teams ?? []) || '—'}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">
                         {player.playerType === 'professional'
@@ -1228,6 +1826,93 @@ export function Dashboard({
                 ))}
               </TableBody>
             </Table>
+          </TabsContent>
+          <TabsContent value="seasons">
+            <div className="mb-4 flex justify-end">
+              <Button type="button" onClick={() => { setCreatingSeason(true); }} disabled={(data?.seasons.length ?? 0) === 0}>
+                <Plus />
+                New season
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>League</TableHead>
+                  <TableHead>Starts</TableHead>
+                  <TableHead>Ends</TableHead>
+                  <TableHead>Yearly purse</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data?.seasons.map((season) => (
+                  <TableRow key={season.id}>
+                    <TableCell>{season.name}</TableCell>
+                    <TableCell>{season.leagueId}</TableCell>
+                    <TableCell>{new Date(season.startsOn).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(season.endsOn).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {(season.yearlyPurseMinorUnits / 100).toLocaleString(
+                        undefined,
+                        {
+                          style: 'currency',
+                          currency: season.yearlyPurseCurrency,
+                          maximumFractionDigits: 0
+                        }
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          season.status === 'current' ? 'default' : 'outline'
+                        }
+                      >
+                        {season.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center">
+                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${season.name}`} onClick={() => { setEditingSeason(season); }}><Pencil /></Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Delete ${season.name}`}
+                          onClick={() => {
+                            if (!window.confirm(`Delete ${season.name}? Seasons with tournaments cannot be deleted.`)) return;
+                            void deleteSeason(season.id).then(
+                              () => onDepartmentsChanged?.(),
+                              (caught: unknown) => {
+                                setSeasonActionError(caught instanceof Error ? caught.message : 'Could not delete season.');
+                              }
+                            );
+                          }}
+                        ><Trash2 /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {editingSeason !== undefined && (
+              <EditSeasonModal
+                season={editingSeason}
+                onClose={() => {
+                  setEditingSeason(undefined);
+                }}
+                onSaved={onDepartmentsChanged ?? (() => undefined)}
+              />
+            )}
+            {creatingSeason && data?.seasons[0] !== undefined && (
+              <NewSeasonModal
+                leagueId={data.seasons[0].leagueId}
+                onClose={() => { setCreatingSeason(false); }}
+                onSaved={onDepartmentsChanged ?? (() => undefined)}
+              />
+            )}
+            {seasonActionError !== undefined && <p className="mt-3 text-sm text-destructive">{seasonActionError}</p>}
           </TabsContent>
           <TabsContent value="teams">
             <div className="flex flex-col gap-4">
@@ -1259,36 +1944,139 @@ export function Dashboard({
           </TabsContent>
           <TabsContent value="tournaments">
             <div className="flex flex-col gap-4">
+              <TournamentSetup tournaments={data?.tournaments ?? []} />
               <AddTournamentForm
                 courses={data?.courses ?? []}
+                seasons={data?.seasons ?? []}
                 onAdded={onDepartmentsChanged}
               />
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  {selectedTournamentIds.length.toString()} selected
+                </p>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={selectedTournamentIds.length === 0 || deletingTournaments}
+                  onClick={() => {
+                    void deleteSelectedTournaments();
+                  }}
+                >
+                  <Trash2 />
+                  {deletingTournaments ? 'Deleting...' : 'Delete selected'}
+                </Button>
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Course</TableHead>
-                    <TableHead>Capacity</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all tournaments"
+                        checked={
+                          (data?.tournaments.length ?? 0) > 0 &&
+                          selectedTournamentIds.length === data?.tournaments.length
+                        }
+                        onChange={toggleAllTournaments}
+                        className="size-4 accent-primary"
+                      />
+                    </TableHead>
+                    {[
+                      ['id', 'ID'],
+                      ['name', 'Name'],
+                      ['scheduledOn', 'Date'],
+                      ['courseId', 'Course'],
+                      ['type', 'Type']
+                    ].map(([key, label]) => {
+                      const sortKey = key as TournamentSortKey;
+                      const isSorted = tournamentSort.key === sortKey;
+                      return (
+                        <TableHead
+                          key={sortKey}
+                          aria-sort={
+                            isSorted ? tournamentSort.direction : 'none'
+                          }
+                        >
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="-ml-3"
+                            onClick={() => {
+                              sortTournaments(sortKey);
+                            }}
+                          >
+                            {label}
+                            <ArrowDownUp />
+                          </Button>
+                        </TableHead>
+                      );
+                    })}
+                    <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data?.tournaments.map((tournament) => (
+                  {sortedTournaments.map((tournament) => (
                     <TableRow key={tournament.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${tournament.name}`}
+                          checked={selectedTournamentIds.includes(tournament.id)}
+                          onChange={() => {
+                            toggleTournament(tournament.id);
+                          }}
+                          className="size-4 accent-primary"
+                        />
+                      </TableCell>
                       <TableCell>{tournament.id}</TableCell>
                       <TableCell>{tournament.name}</TableCell>
+                      <TableCell>
+                        {tournament.scheduledOn === undefined
+                          ? '—'
+                          : new Date(tournament.scheduledOn).toLocaleDateString()}
+                      </TableCell>
                       <TableCell>{tournament.courseId ?? '—'}</TableCell>
-                      <TableCell>{tournament.capacity}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {tournament.status ?? 'scheduled'}
+                          {tournament.type === 'fli' ? 'FLI' : 'Multi Round'}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center">
+                          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${tournament.name}`} onClick={() => { setEditingTournament(tournament); }}><Pencil /></Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Delete ${tournament.name}`}
+                            onClick={() => {
+                              if (!window.confirm(`Delete ${tournament.name}? Tournaments with registrations cannot be deleted.`)) return;
+                              void deleteTournament(tournament.id).then(
+                                () => onDepartmentsChanged?.(),
+                                (caught: unknown) => {
+                                  setSeasonActionError(caught instanceof Error ? caught.message : 'Could not delete tournament.');
+                                }
+                              );
+                            }}
+                          ><Trash2 /></Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+              {editingTournament !== undefined && (
+                <EditTournamentModal
+                  tournament={editingTournament}
+                  seasons={data?.seasons ?? []}
+                  courses={data?.courses ?? []}
+                  onClose={() => { setEditingTournament(undefined); }}
+                  onSaved={onDepartmentsChanged ?? (() => undefined)}
+                />
+              )}
+              {seasonActionError !== undefined && <p className="text-sm text-destructive">{seasonActionError}</p>}
             </div>
           </TabsContent>
           <TabsContent value="courses">

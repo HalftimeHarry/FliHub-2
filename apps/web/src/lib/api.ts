@@ -73,9 +73,30 @@ export interface TournamentDto {
   readonly id: string;
   readonly seasonId: string;
   readonly name: string;
-  readonly capacity: number;
+  readonly type: 'fli' | 'multi-round';
+  readonly scheduledOn?: string;
+  readonly scoringHoleCount?: number;
   readonly status?: TournamentStatus;
   readonly courseId?: string;
+}
+
+export interface TournamentTeeGroupDto {
+  readonly id: string;
+  readonly number: number;
+  readonly teeTime: string;
+  readonly teamIds: readonly string[];
+  readonly teamNames: readonly string[];
+}
+
+export interface SeasonDto {
+  readonly id: string;
+  readonly leagueId: string;
+  readonly name: string;
+  readonly startsOn: string;
+  readonly endsOn: string;
+  readonly yearlyPurseMinorUnits: number;
+  readonly yearlyPurseCurrency: string;
+  readonly status: 'current' | 'upcoming' | 'completed';
 }
 
 export interface CourseDto {
@@ -573,7 +594,9 @@ const demoData: Record<string, unknown> = {
       id: 'tournament-1',
       seasonId: 'season-1',
       name: 'Spring Open',
-      capacity: 32,
+      type: 'fli',
+      scheduledOn: '2026-06-02T22:00:00.000Z',
+      scoringHoleCount: 18,
       status: 'scheduled',
       courseId: 'course-1'
     },
@@ -581,11 +604,35 @@ const demoData: Record<string, unknown> = {
       id: 'tournament-2',
       seasonId: 'season-1',
       name: 'Summer Championship',
-      capacity: 16,
+      type: 'fli',
+      scheduledOn: '2026-08-11T22:00:00.000Z',
+      scoringHoleCount: 18,
       status: 'scheduled',
       courseId: 'course-2'
     }
   ] satisfies readonly TournamentDto[],
+  '/league/seasons': [
+    {
+      id: 'summer-season',
+      leagueId: 'fgl-league',
+      name: 'Summer Season',
+      startsOn: '2026-05-01T00:00:00.000Z',
+      endsOn: '2026-08-31T23:59:59.999Z',
+      yearlyPurseMinorUnits: 400_000_000,
+      yearlyPurseCurrency: 'USD',
+      status: 'current'
+    },
+    {
+      id: 'summer-2-season',
+      leagueId: 'fgl-league',
+      name: 'Summer 2 Season',
+      startsOn: '2027-06-01T00:00:00.000Z',
+      endsOn: '2027-08-31T23:59:59.999Z',
+      yearlyPurseMinorUnits: 800_000_000,
+      yearlyPurseCurrency: 'USD',
+      status: 'upcoming'
+    }
+  ] satisfies readonly SeasonDto[],
   '/league/courses': [
     {
       id: 'course-1',
@@ -720,6 +767,11 @@ export const fetchPlayers = () =>
   getJson<readonly PlayerDto[]>('/league/players');
 export const fetchTournaments = () =>
   getJson<readonly TournamentDto[]>('/league/tournaments');
+export const fetchTournamentTeeGroups = (tournamentId: string) =>
+  getJson<readonly TournamentTeeGroupDto[]>(
+    `/league/tournaments/${tournamentId}/tee-groups`
+  );
+export const fetchSeasons = () => getJson<readonly SeasonDto[]>('/league/seasons');
 export const fetchCourses = () =>
   getJson<readonly CourseDto[]>('/league/courses');
 export const fetchHoles = () => getJson<readonly HoleDto[]>('/league/holes');
@@ -797,11 +849,93 @@ const postJson = async <Value>(
   return (await response.json()) as Value;
 };
 
+const putJson = async <Value>(path: string, body: unknown): Promise<Value> => {
+  const response = await fetch(path, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getOrganizationHeaders()
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(
+      error.message ?? `Request failed (${response.status.toString()})`
+    );
+  }
+
+  return (await response.json()) as Value;
+};
+
 export const addTournament = (input: {
   readonly name: string;
-  readonly capacity?: number;
-  readonly courseId?: string;
+  readonly seasonId: string;
+  readonly courseId: string;
+  readonly type: 'fli' | 'multi-round';
+  readonly scheduledOn?: string;
 }) => postJson<TournamentDto>('/league/tournaments', input);
+
+export const seedSixTournaments = (input: {
+  readonly seasonId: string;
+  readonly courseId: string;
+  readonly type: 'fli' | 'multi-round';
+}) => postJson<readonly TournamentDto[]>('/league/tournaments/seed-six', input);
+
+export const updateTournament = (
+  tournamentId: string,
+  input: Omit<TournamentDto, 'id' | 'scoringHoleCount'>
+) => putJson<TournamentDto>(`/league/tournaments/${tournamentId}`, input);
+
+export const deleteTournament = async (tournamentId: string): Promise<void> => {
+  const response = await fetch(`/league/tournaments/${tournamentId}`, {
+    method: 'DELETE',
+    headers: getOrganizationHeaders()
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(
+      error.message ?? `Request failed (${response.status.toString()})`
+    );
+  }
+};
+
+export const deleteTournaments = async (
+  tournamentIds: readonly string[]
+): Promise<void> => {
+  await postJson<undefined>('/league/tournaments/delete-many', {
+    tournamentIds
+  });
+};
+
+export const updateSeason = (
+  seasonId: string,
+  input: Omit<SeasonDto, 'id' | 'leagueId'>
+) => putJson<SeasonDto>(`/league/seasons/${seasonId}`, input);
+
+export const createSeason = (
+  input: Omit<SeasonDto, 'id'>
+) => postJson<SeasonDto>('/league/seasons', input);
+
+export const deleteSeason = async (seasonId: string): Promise<void> => {
+  const response = await fetch(`/league/seasons/${seasonId}`, {
+    method: 'DELETE',
+    headers: getOrganizationHeaders()
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => ({}))) as {
+      message?: string;
+    };
+    throw new Error(
+      error.message ?? `Request failed (${response.status.toString()})`
+    );
+  }
+};
 
 export const addCourse = (input: {
   readonly name: string;
@@ -840,24 +974,6 @@ export const addHole = (input: {
   readonly number?: number;
   readonly par?: number;
 }) => postJson<HoleDto>('/league/holes', input);
-
-export interface LeagueSeedResult {
-  readonly organizationId: string;
-  readonly created: {
-    readonly tournaments: readonly string[];
-    readonly courses: readonly string[];
-    readonly holes: number;
-    readonly teams: readonly string[];
-  };
-}
-
-export const seedLeague = (input: {
-  readonly tournaments?: number;
-  readonly courses?: number;
-  readonly holesPerCourse?: number;
-  readonly tournamentCapacity?: number;
-  readonly teams?: number;
-}) => postJson<LeagueSeedResult>('/league/seed', input);
 
 export interface FantasySeedResult {
   readonly organizationId: string;

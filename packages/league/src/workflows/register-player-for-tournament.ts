@@ -135,28 +135,16 @@ const ensureRegistrationIsAvailable =
     ResolvedTournamentRegistrationContext
   > =>
   async (context) => {
-    const [alreadyRegistered, registrationCount] = await Promise.all([
-      repositories.registrations.existsForPlayer(
-        context.tournament.id,
-        context.player.id
-      ),
-      repositories.registrations.countForTournament(context.tournament.id)
-    ]);
+    const alreadyRegistered = await repositories.registrations.existsForPlayer(
+      context.tournament.id,
+      context.player.id
+    );
 
     if (alreadyRegistered) {
       return fail(
         new DomainError(
           'league.registration.duplicate',
           'Player is already registered for this tournament.'
-        )
-      );
-    }
-
-    if (!context.tournament.hasCapacity(registrationCount)) {
-      return fail(
-        new DomainError(
-          'league.registration.capacity_reached',
-          'Tournament capacity has been reached.'
         )
       );
     }

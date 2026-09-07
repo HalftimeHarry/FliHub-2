@@ -5,10 +5,13 @@ import {
   Course,
   Hole,
   MAX_TEAMS_PER_LEAGUE,
+  Season,
   Team,
   Tournament,
   createTournamentRegistrationWorkflow,
-  type TournamentStatus
+  type SeasonStatus,
+  type TournamentStatus,
+  type TournamentType
 } from '@flihub/league';
 import {
   DraftRoom,
@@ -61,15 +64,23 @@ app.get('/', (_req, res) => {
       'GET /business/reimbursement-claims',
       'POST /business/reimbursement-claims',
       'GET /league/players',
+      'GET /league/seasons',
+      'POST /league/seasons',
+      'PUT /league/seasons/:id',
+      'DELETE /league/seasons/:id',
       'GET /league/teams',
       'POST /league/teams',
       'GET /league/tournaments',
+      'GET /league/tournaments/:id/tee-groups',
       'POST /league/tournaments',
+      'POST /league/tournaments/seed-six',
+      'PUT /league/tournaments/:id',
+      'DELETE /league/tournaments/:id',
+      'POST /league/tournaments/delete-many',
       'GET /league/courses',
       'POST /league/courses',
       'GET /league/holes',
       'POST /league/holes',
-      'POST /league/seed',
       'GET /league/tournament-registrations',
       'POST /league/tournament-registrations',
       'GET /fantasy/leagues',
@@ -231,6 +242,187 @@ app.get('/league/players', (req: OrganizationRequest, res) => {
   });
 });
 
+app.get('/league/seasons', (req: OrganizationRequest, res) => {
+  void Promise.all([
+    leagueRepositories.leagues.list(),
+    leagueRepositories.seasons.list()
+  ]).then(([leagues, seasons]) => {
+    const leagueIds = new Set(
+      leagues
+        .filter((league) => league.organizationId.value === req.organizationId)
+        .map((league) => league.id.value)
+    );
+    res.json(
+      seasons
+        .filter((season) => leagueIds.has(season.leagueId.value))
+        .map((season) => ({
+          id: season.id.value,
+          leagueId: season.leagueId.value,
+          name: season.name,
+          startsOn: season.dateRange.startsOn.toISOString(),
+          endsOn: season.dateRange.endsOn.toISOString(),
+          yearlyPurseMinorUnits: season.yearlyPurse.minorUnits,
+          yearlyPurseCurrency: season.yearlyPurse.currency,
+          status: season.status
+        }))
+    );
+  });
+});
+
+app.post(
+  '/league/seasons',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const body = req.body as {
+      leagueId?: string;
+      name?: string;
+      startsOn?: string;
+      endsOn?: string;
+      yearlyPurseMinorUnits?: number;
+      yearlyPurseCurrency?: string;
+      status?: SeasonStatus;
+    };
+    if (
+      body.leagueId === undefined ||
+      body.name === undefined ||
+      body.startsOn === undefined ||
+      body.endsOn === undefined ||
+      body.yearlyPurseMinorUnits === undefined
+    ) {
+      res.status(400).json({ code: 'league.season.fields_required', message: 'League, name, dates, and yearly purse are required.' });
+      return;
+    }
+    void Promise.all([
+      leagueRepositories.leagues.list(),
+      leagueRepositories.seasons.list()
+    ]).then(async ([leagues, seasons]) => {
+      const league = leagues.find((entry) => entry.id.value === body.leagueId);
+      if (league?.organizationId.value !== req.organizationId) {
+        res.status(400).json({ code: 'league.season.league_not_found', message: 'The selected league does not belong to this organization.' });
+        return;
+      }
+      try {
+        const season = Season.create({
+          id: `season-${(seasons.length + 1).toString()}`,
+          leagueId: league.id.value,
+          name: body.name,
+          startsOn: new Date(body.startsOn),
+          endsOn: new Date(body.endsOn),
+          yearlyPurseMinorUnits: body.yearlyPurseMinorUnits,
+          yearlyPurseCurrency: body.yearlyPurseCurrency,
+          status: body.status
+        });
+        await leagueRepositories.seasons.save(season);
+        res.status(201).json({ id: season.id.value, leagueId: season.leagueId.value, name: season.name, startsOn: season.dateRange.startsOn.toISOString(), endsOn: season.dateRange.endsOn.toISOString(), yearlyPurseMinorUnits: season.yearlyPurse.minorUnits, yearlyPurseCurrency: season.yearlyPurse.currency, status: season.status });
+      } catch (error) {
+        res.status(400).json({ code: 'league.season.invalid_create', message: error instanceof Error ? error.message : 'Season creation failed.' });
+      }
+    });
+  }
+);
+
+app.put(
+  '/league/seasons/:id',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const body = req.body as {
+      name?: string;
+      startsOn?: string;
+      endsOn?: string;
+      yearlyPurseMinorUnits?: number;
+      yearlyPurseCurrency?: string;
+      status?: SeasonStatus;
+    };
+
+    if (
+      body.name === undefined ||
+      body.startsOn === undefined ||
+      body.endsOn === undefined ||
+      body.yearlyPurseMinorUnits === undefined
+    ) {
+      res.status(400).json({
+        code: 'league.season.fields_required',
+        message: 'Name, dates, and yearly purse are required.'
+      });
+      return;
+    }
+
+    void Promise.all([
+      leagueRepositories.seasons.list(),
+      leagueRepositories.leagues.list()
+    ]).then(async ([seasons, leagues]) => {
+      const existing = seasons.find(
+        (season) => season.id.value === req.params.id
+      );
+      const league = leagues.find((entry) =>
+        entry.id.equals(existing?.leagueId)
+      );
+      if (existing === undefined || league?.organizationId.value !== req.organizationId) {
+        res.status(404).json({
+          code: 'league.season.not_found',
+          message: 'Season could not be resolved for this organization.'
+        });
+        return;
+      }
+
+      try {
+        const season = Season.create({
+          id: existing.id.value,
+          leagueId: existing.leagueId.value,
+          name: body.name,
+          startsOn: new Date(body.startsOn),
+          endsOn: new Date(body.endsOn),
+          yearlyPurseMinorUnits: body.yearlyPurseMinorUnits,
+          yearlyPurseCurrency: body.yearlyPurseCurrency,
+          status: body.status
+        });
+        await leagueRepositories.seasons.save(season);
+        res.json({
+          id: season.id.value,
+          leagueId: season.leagueId.value,
+          name: season.name,
+          startsOn: season.dateRange.startsOn.toISOString(),
+          endsOn: season.dateRange.endsOn.toISOString(),
+          yearlyPurseMinorUnits: season.yearlyPurse.minorUnits,
+          yearlyPurseCurrency: season.yearlyPurse.currency,
+          status: season.status
+        });
+      } catch (error) {
+        res.status(400).json({
+          code: 'league.season.invalid_update',
+          message:
+            error instanceof Error ? error.message : 'Season update failed.'
+        });
+      }
+    });
+  }
+);
+
+app.delete(
+  '/league/seasons/:id',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    void Promise.all([
+      leagueRepositories.seasons.list(),
+      leagueRepositories.leagues.list(),
+      leagueRepositories.tournaments.list()
+    ]).then(async ([seasons, leagues, tournaments]) => {
+      const season = seasons.find((entry) => entry.id.value === req.params.id);
+      const league = leagues.find((entry) => entry.id.equals(season?.leagueId));
+      if (season === undefined || league?.organizationId.value !== req.organizationId) {
+        res.status(404).json({ code: 'league.season.not_found', message: 'Season could not be resolved for this organization.' });
+        return;
+      }
+      if (tournaments.some((tournament) => tournament.seasonId.equals(season.id))) {
+        res.status(400).json({ code: 'league.season.has_tournaments', message: 'A season with tournaments cannot be deleted.' });
+        return;
+      }
+      await leagueRepositories.seasons.deleteById(season.id);
+      res.status(204).end();
+    });
+  }
+);
+
 app.get('/league/teams', (req: OrganizationRequest, res) => {
   void leagueRepositories.teams.list().then((teams) => {
     res.json(
@@ -345,7 +537,10 @@ app.post(
 );
 
 app.get('/league/tournaments', (req: OrganizationRequest, res) => {
-  void leagueRepositories.tournaments.list().then((tournaments) => {
+  void Promise.all([
+    leagueRepositories.tournaments.list(),
+    leagueRepositories.courses.list()
+  ]).then(([tournaments, courses]) => {
     res.json(
       tournaments
         .filter(
@@ -356,7 +551,14 @@ app.get('/league/tournaments', (req: OrganizationRequest, res) => {
           organizationId: tournament.organizationId.value,
           seasonId: tournament.seasonId.value,
           name: tournament.name,
-          capacity: tournament.capacity,
+          type: tournament.type,
+          scheduledOn: tournament.scheduledOn?.toISOString(),
+          scoringHoleCount:
+            tournament.type === 'fli'
+              ? 18
+              : courses.find((course) =>
+                    course.id.equals(tournament.courseId)
+                  )?.holeCount,
           status: tournament.status,
           courseId: tournament.courseId?.value
         }))
@@ -403,18 +605,95 @@ app.get('/league/holes', (req: OrganizationRequest, res) => {
   });
 });
 
+app.get(
+  '/league/tournaments/:id/tee-groups',
+  (req: OrganizationRequest, res) => {
+    const tournamentId = Identifier.create(req.params.id, 'tournament id');
+    void Promise.all([
+      leagueRepositories.tournaments.findById(tournamentId),
+      leagueRepositories.teeGroups.listForTournament(tournamentId),
+      leagueRepositories.teams.list()
+    ]).then(([tournament, groups, teams]) => {
+      if (tournament?.organizationId.value !== req.organizationId) {
+        res.status(404).json({
+          code: 'league.tournament.not_found',
+          message: 'Tournament could not be resolved for this organization.'
+        });
+        return;
+      }
+      const teamNames = new Map(teams.map((team) => [team.id.value, team.name]));
+      res.json(
+        groups.map((group) => ({
+          id: group.id.value,
+          number: group.number,
+          teeTime: group.teeTime,
+          teamIds: group.teamIds.map((teamId) => teamId.value),
+          teamNames: group.teamIds.map(
+            (teamId) => teamNames.get(teamId.value) ?? teamId.value
+          )
+        }))
+      );
+    });
+  }
+);
+
 app.post(
   '/league/tournaments',
   requirePermission('league', 'write'),
   (req: OrganizationRequest, res) => {
     const body = req.body as {
       name?: string;
-      capacity?: number;
+      seasonId?: string;
       courseId?: string;
+      type?: TournamentType;
+      scheduledOn?: string;
       status?: TournamentStatus;
     };
 
-    void leagueRepositories.tournaments.list().then((tournaments) => {
+    if (body.seasonId === undefined || body.courseId === undefined) {
+      res.status(400).json({
+        code: 'league.tournament.references_required',
+        message: 'A seasonId and courseId are required to add a tournament.'
+      });
+      return;
+    }
+
+    void Promise.all([
+      leagueRepositories.tournaments.list(),
+      leagueRepositories.seasons.list(),
+      leagueRepositories.leagues.list(),
+      leagueRepositories.courses.list()
+    ]).then(([tournaments, seasons, leagues, courses]) => {
+      const season = seasons.find((entry) => entry.id.value === body.seasonId);
+      const seasonLeague = leagues.find((league) =>
+        league.id.equals(season?.leagueId)
+      );
+      if (
+        season === undefined ||
+        seasonLeague?.organizationId.value !== req.organizationId
+      ) {
+        res.status(400).json({
+          code: 'league.tournament.season_not_found',
+          message: 'The selected season does not belong to this organization.'
+        });
+        return;
+      }
+      const course = courses.find((entry) => entry.id.value === body.courseId);
+      if (course?.organizationId.value !== req.organizationId) {
+        res.status(400).json({
+          code: 'league.tournament.course_not_found',
+          message: 'The selected course does not belong to this organization.'
+        });
+        return;
+      }
+      if ((body.type ?? 'fli') === 'fli' && course.holeCount !== 9) {
+        res.status(400).json({
+          code: 'league.tournament.fli_course_requires_nine_holes',
+          message: 'An FLI tournament requires a nine-hole course played twice.'
+        });
+        return;
+      }
+
       const existingIds = new Set(
         tournaments.map((tournament) => tournament.id.value)
       );
@@ -428,9 +707,11 @@ app.post(
       const tournament = Tournament.create({
         id,
         organizationId: req.organizationId,
-        seasonId: 'season-1',
+        seasonId: season.id.value,
         name: body.name ?? '',
-        capacity: body.capacity ?? 32,
+        type: body.type,
+        scheduledOn:
+          body.scheduledOn === undefined ? undefined : new Date(body.scheduledOn),
         status: body.status,
         courseId: body.courseId
       });
@@ -441,11 +722,251 @@ app.post(
           organizationId: tournament.organizationId.value,
           seasonId: tournament.seasonId.value,
           name: tournament.name,
-          capacity: tournament.capacity,
+          type: tournament.type,
+          scheduledOn: tournament.scheduledOn?.toISOString(),
+          scoringHoleCount:
+            tournament.type === 'fli' ? 18 : course.holeCount,
           status: tournament.status,
           courseId: tournament.courseId?.value
         });
       });
+    });
+  }
+);
+
+app.post(
+  '/league/tournaments/delete-many',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const body = req.body as { tournamentIds?: string[] };
+    const tournamentIds = body.tournamentIds ?? [];
+    if (tournamentIds.length === 0) {
+      res.status(400).json({
+        code: 'league.tournament.selection_required',
+        message: 'Select at least one tournament to delete.'
+      });
+      return;
+    }
+    void Promise.all([
+      leagueRepositories.tournaments.list(),
+      leagueRepositories.registrations.list()
+    ]).then(async ([tournaments, registrations]) => {
+      const selected = tournaments.filter((tournament) =>
+        tournamentIds.includes(tournament.id.value)
+      );
+      if (
+        selected.length !== tournamentIds.length ||
+        selected.some(
+          (tournament) =>
+            tournament.organizationId.value !== req.organizationId
+        )
+      ) {
+        res.status(404).json({
+          code: 'league.tournament.not_found',
+          message: 'One or more tournaments could not be resolved for this organization.'
+        });
+        return;
+      }
+      if (
+        registrations.some((registration) =>
+          selected.some((tournament) =>
+            registration.tournamentId.equals(tournament.id)
+          )
+        )
+      ) {
+        res.status(400).json({
+          code: 'league.tournament.has_registrations',
+          message: 'Tournaments with registrations cannot be deleted.'
+        });
+        return;
+      }
+      await Promise.all(
+        selected.map((tournament) =>
+          leagueRepositories.tournaments.deleteById(tournament.id)
+        )
+      );
+      res.json({});
+    });
+  }
+);
+
+app.post(
+  '/league/tournaments/seed-six',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const body = req.body as {
+      seasonId?: string;
+      courseId?: string;
+      type?: TournamentType;
+    };
+    if (body.seasonId === undefined || body.courseId === undefined || body.type === undefined) {
+      res.status(400).json({
+        code: 'league.tournament.references_required',
+        message: 'A seasonId, courseId, and type are required to seed tournaments.'
+      });
+      return;
+    }
+    void Promise.all([
+      leagueRepositories.tournaments.list(),
+      leagueRepositories.seasons.list(),
+      leagueRepositories.leagues.list(),
+      leagueRepositories.courses.list()
+    ]).then(async ([tournaments, seasons, leagues, courses]) => {
+      const season = seasons.find((entry) => entry.id.value === body.seasonId);
+      const league = leagues.find((entry) => entry.id.equals(season?.leagueId));
+      const course = courses.find((entry) => entry.id.value === body.courseId);
+      if (
+        season === undefined ||
+        league?.organizationId.value !== req.organizationId ||
+        course?.organizationId.value !== req.organizationId
+      ) {
+        res.status(400).json({
+          code: 'league.tournament.reference_not_found',
+          message: 'The selected season or course does not belong to this organization.'
+        });
+        return;
+      }
+      if (body.type === 'fli' && course.holeCount !== 9) {
+        res.status(400).json({
+          code: 'league.tournament.fli_course_requires_nine_holes',
+          message: 'An FLI tournament requires a nine-hole course played twice.'
+        });
+        return;
+      }
+
+      const existingIds = new Set(tournaments.map((tournament) => tournament.id.value));
+      const created: Tournament[] = [];
+      const rangeStart = season.dateRange.startsOn.getTime();
+      const rangeEnd = season.dateRange.endsOn.getTime();
+      const eventNames = [
+        'Sunset Open',
+        'Canyon Heat Cup',
+        'Summer Solstice Invitational',
+        'High Desert Classic',
+        'Mesa Flight Showdown',
+        'Summer Championship'
+      ];
+      const scheduledDates = Array.from({ length: eventNames.length }, () =>
+        new Date(
+          rangeStart + Math.floor(Math.random() * (rangeEnd - rangeStart + 1))
+        )
+      ).sort((left, right) => left.getTime() - right.getTime());
+      for (const [index, name] of eventNames.entries()) {
+        let id = `tournament-${(tournaments.length + index + 1).toString()}`;
+        while (existingIds.has(id)) {
+          id = `tournament-${(Number(id.split('-')[1]) + 1).toString()}`;
+        }
+        existingIds.add(id);
+        const tournament = Tournament.create({
+          id,
+          organizationId: req.organizationId,
+          seasonId: season.id.value,
+          name,
+          type: body.type,
+          scheduledOn: scheduledDates[index],
+          courseId: course.id.value
+        });
+        created.push(tournament);
+        await leagueRepositories.tournaments.save(tournament);
+      }
+      res.status(201).json(
+        created.map((tournament) => ({
+          id: tournament.id.value,
+          organizationId: tournament.organizationId.value,
+          seasonId: tournament.seasonId.value,
+          name: tournament.name,
+          type: tournament.type,
+          scheduledOn: tournament.scheduledOn?.toISOString(),
+          scoringHoleCount: tournament.type === 'fli' ? 18 : course.holeCount,
+          status: tournament.status,
+          courseId: tournament.courseId?.value
+        }))
+      );
+    });
+  }
+);
+
+app.put(
+  '/league/tournaments/:id',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const body = req.body as {
+      name?: string;
+      seasonId?: string;
+      courseId?: string;
+      type?: TournamentType;
+      scheduledOn?: string;
+      status?: TournamentStatus;
+    };
+    if (
+      body.name === undefined ||
+      body.seasonId === undefined ||
+      body.courseId === undefined ||
+      body.type === undefined
+    ) {
+      res.status(400).json({ code: 'league.tournament.fields_required', message: 'Name, season, course, and type are required.' });
+      return;
+    }
+    void Promise.all([
+      leagueRepositories.tournaments.list(),
+      leagueRepositories.seasons.list(),
+      leagueRepositories.leagues.list(),
+      leagueRepositories.courses.list()
+    ]).then(async ([tournaments, seasons, leagues, courses]) => {
+      const existing = tournaments.find((entry) => entry.id.value === req.params.id);
+      const season = seasons.find((entry) => entry.id.value === body.seasonId);
+      const seasonLeague = leagues.find((entry) => entry.id.equals(season?.leagueId));
+      const course = courses.find((entry) => entry.id.value === body.courseId);
+      if (
+        existing?.organizationId.value !== req.organizationId ||
+        seasonLeague?.organizationId.value !== req.organizationId ||
+        course?.organizationId.value !== req.organizationId
+      ) {
+        res.status(404).json({ code: 'league.tournament.not_found', message: 'Tournament references could not be resolved for this organization.' });
+        return;
+      }
+      if (body.type === 'fli' && course.holeCount !== 9) {
+        res.status(400).json({ code: 'league.tournament.fli_course_requires_nine_holes', message: 'An FLI tournament requires a nine-hole course played twice.' });
+        return;
+      }
+      try {
+        const tournament = Tournament.create({
+          id: existing.id.value,
+          organizationId: existing.organizationId.value,
+          seasonId: season.id.value,
+          name: body.name,
+          type: body.type,
+          scheduledOn: body.scheduledOn === undefined ? undefined : new Date(body.scheduledOn),
+          status: body.status,
+          courseId: course.id.value
+        });
+        await leagueRepositories.tournaments.save(tournament);
+        res.json({ id: tournament.id.value, organizationId: tournament.organizationId.value, seasonId: tournament.seasonId.value, name: tournament.name, type: tournament.type, scheduledOn: tournament.scheduledOn?.toISOString(), scoringHoleCount: tournament.type === 'fli' ? 18 : course.holeCount, status: tournament.status, courseId: tournament.courseId?.value });
+      } catch (error) {
+        res.status(400).json({ code: 'league.tournament.invalid_update', message: error instanceof Error ? error.message : 'Tournament update failed.' });
+      }
+    });
+  }
+);
+
+app.delete(
+  '/league/tournaments/:id',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    void Promise.all([
+      leagueRepositories.tournaments.findById(Identifier.create(req.params.id, 'tournament id')),
+      leagueRepositories.registrations.list()
+    ]).then(async ([tournament, registrations]) => {
+      if (tournament?.organizationId.value !== req.organizationId) {
+        res.status(404).json({ code: 'league.tournament.not_found', message: 'Tournament could not be resolved for this organization.' });
+        return;
+      }
+      if (registrations.some((registration) => registration.tournamentId.equals(tournament.id))) {
+        res.status(400).json({ code: 'league.tournament.has_registrations', message: 'A tournament with registrations cannot be deleted.' });
+        return;
+      }
+      await leagueRepositories.tournaments.deleteById(tournament.id);
+      res.status(204).end();
     });
   }
 );
@@ -520,174 +1041,6 @@ app.post(
           number: hole.number,
           par: hole.par
         });
-      });
-    });
-  }
-);
-
-app.post(
-  '/league/seed',
-  requirePermission('league', 'write'),
-  (req: OrganizationRequest, res) => {
-    const body = req.body as {
-      tournaments?: number;
-      courses?: number;
-      holesPerCourse?: number;
-      tournamentCapacity?: number;
-      teams?: number;
-    };
-
-    const organizationId = req.organizationId;
-    const tournamentCount = Math.max(0, body.tournaments ?? 0);
-    const courseCount = Math.max(0, body.courses ?? 0);
-    const holesPerCourse = Math.max(1, body.holesPerCourse ?? 18);
-    const tournamentCapacity = Math.max(1, body.tournamentCapacity ?? 32);
-    const teamCount = Math.max(0, body.teams ?? 0);
-
-    void Promise.all([
-      leagueRepositories.tournaments.list(),
-      leagueRepositories.courses.list(),
-      leagueRepositories.holes.list(),
-      leagueRepositories.teams.list(),
-      leagueRepositories.players.list()
-    ]).then(async ([tournaments, courses, holes, teams, players]) => {
-      const courseIds = new Set(courses.map((course) => course.id.value));
-      const createdCourses: Course[] = [];
-
-      let courseIndex = courses.length + 1;
-      for (let i = 0; i < courseCount; i += 1) {
-        let id = `course-${courseIndex.toString()}`;
-        while (courseIds.has(id)) {
-          courseIndex += 1;
-          id = `course-${courseIndex.toString()}`;
-        }
-        courseIndex += 1;
-        const course = Course.create({
-          id,
-          organizationId,
-          name: `Course ${id.split('-').pop() ?? id}`,
-          holeCount: holesPerCourse
-        });
-        courseIds.add(id);
-        createdCourses.push(course);
-        await leagueRepositories.courses.save(course);
-      }
-
-      const holeIds = new Set(holes.map((hole) => hole.id.value));
-      const createdHoles: Hole[] = [];
-      for (const course of createdCourses) {
-        for (let number = 1; number <= holesPerCourse; number += 1) {
-          const holeId = `${course.id.value}-hole-${number.toString()}`;
-          if (holeIds.has(holeId)) {
-            continue;
-          }
-          holeIds.add(holeId);
-          const hole = Hole.create({
-            id: holeId,
-            courseId: course.id.value,
-            number,
-            par: ((number - 1) % 3) + 3
-          });
-          createdHoles.push(hole);
-          await leagueRepositories.holes.save(hole);
-        }
-      }
-
-      const tournamentIds = new Set(
-        tournaments.map((tournament) => tournament.id.value)
-      );
-      const createdTournaments: Tournament[] = [];
-      const allCourseIds = [
-        ...courses.map((course) => course.id.value),
-        ...createdCourses.map((course) => course.id.value)
-      ];
-
-      let tournamentIndex = tournaments.length + 1;
-      for (let i = 0; i < tournamentCount; i += 1) {
-        let id = `tournament-${tournamentIndex.toString()}`;
-        while (tournamentIds.has(id)) {
-          tournamentIndex += 1;
-          id = `tournament-${tournamentIndex.toString()}`;
-        }
-        tournamentIndex += 1;
-        const tournament = Tournament.create({
-          id,
-          organizationId,
-          seasonId: 'season-1',
-          name: `Tournament ${id.split('-').pop() ?? id}`,
-          capacity: tournamentCapacity,
-          status: 'scheduled',
-          courseId: allCourseIds.length
-            ? allCourseIds[i % allCourseIds.length]
-            : undefined
-        });
-        tournamentIds.add(id);
-        createdTournaments.push(tournament);
-        await leagueRepositories.tournaments.save(tournament);
-      }
-
-      // Seed teams by pairing available male + female players from the org.
-      const organizationTeams = teams.filter(
-        (team) => team.organizationId.value === organizationId
-      );
-      const teamIds = new Set(teams.map((team) => team.id.value));
-      const pairedPlayerIds = new Set(
-        organizationTeams.flatMap((team) => [
-          team.malePlayerId.value,
-          team.femalePlayerId.value
-        ])
-      );
-      const orgPlayers = players.filter(
-        (player) =>
-          player.organizationId.value === organizationId && player.active
-      );
-      const availableMale = orgPlayers.filter(
-        (player) => player.gender === 'male' && !pairedPlayerIds.has(player.id.value)
-      );
-      const availableFemale = orgPlayers.filter(
-        (player) =>
-          player.gender === 'female' && !pairedPlayerIds.has(player.id.value)
-      );
-
-      const createdTeams: Team[] = [];
-      const capacity = MAX_TEAMS_PER_LEAGUE - organizationTeams.length;
-      const pairable = Math.min(
-        teamCount,
-        capacity,
-        availableMale.length,
-        availableFemale.length
-      );
-
-      let teamIndex = teams.length + 1;
-      for (let i = 0; i < pairable; i += 1) {
-        let id = `team-${teamIndex.toString()}`;
-        while (teamIds.has(id)) {
-          teamIndex += 1;
-          id = `team-${teamIndex.toString()}`;
-        }
-        teamIndex += 1;
-        const male = availableMale[i];
-        const female = availableFemale[i];
-        const team = Team.create({
-          id,
-          organizationId,
-          name: `${male.displayName} & ${female.displayName}`,
-          malePlayerId: male.id.value,
-          femalePlayerId: female.id.value
-        });
-        teamIds.add(id);
-        createdTeams.push(team);
-        await leagueRepositories.teams.save(team);
-      }
-
-      res.status(201).json({
-        organizationId,
-        created: {
-          tournaments: createdTournaments.map((tournament) => tournament.id.value),
-          courses: createdCourses.map((course) => course.id.value),
-          holes: createdHoles.length,
-          teams: createdTeams.map((team) => team.id.value)
-        }
       });
     });
   }

@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Code2,
   CircleOff,
+  Database,
   Flag,
   Layers3,
   Sparkles,

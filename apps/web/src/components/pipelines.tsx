@@ -177,7 +177,7 @@ export function Pipelines() {
                     )}
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Eligibility and capacity
+                    Eligibility and tournament status
                   </p>
                 </div>
                 <ArrowDown className="mx-auto size-4 shrink-0 text-muted-foreground md:hidden" />
