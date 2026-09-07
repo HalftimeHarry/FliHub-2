@@ -42,6 +42,31 @@ export interface OrganizationSetup {
   readonly departments: readonly DepartmentSetup[];
 }
 
+const seededDepartmentsByOrganization: Readonly<
+  Record<string, readonly DepartmentSetup[]>
+> = {
+  fgl: [
+    { id: 'operations', name: 'Operations', headName: 'Morgan Reyes' },
+    { id: 'marketing', name: 'Marketing', headName: 'Taylor Morgan' },
+    {
+      id: 'player-development',
+      name: 'Player Development',
+      headName: 'Dakota Shaw'
+    }
+  ],
+  'org-2': [
+    {
+      id: 'course-operations',
+      name: 'Course Operations',
+      headName: 'Riley Patel'
+    }
+  ],
+  'org-custom': [
+    { id: 'league-operations', name: 'League Operations', headName: '' },
+    { id: 'event-operations', name: 'Event Operations', headName: '' }
+  ]
+};
+
 interface ComponentOption {
   readonly id: string;
   readonly label: string;
@@ -122,6 +147,7 @@ const templateDetails: Record<
     readonly tone: string;
     readonly setup: readonly string[];
     readonly bestFor: string;
+    readonly highlights: readonly string[];
   }
 > = {
   'fli-golf': {
@@ -138,7 +164,13 @@ const templateDetails: Record<
       'Courses, holes, groups, and scoring',
       'Fantasy, payouts, sponsorship, and community'
     ],
-    bestFor: 'Professional FLI Golf operations'
+    bestFor: 'Professional FLI Golf operations',
+    highlights: [
+      'Create seasons with purses and tournament schedules.',
+      'Run 12 mixed professional teams through six tee-group events.',
+      'Use nine physical holes twice for an 18-hole FLI scoring round.',
+      'Enable fantasy drafts, payouts, sponsors, and community content.'
+    ]
   },
   'fli-basic': {
     name: 'FLI Basic',
@@ -159,7 +191,13 @@ const templateDetails: Record<
       'Courses, holes, groups, and scoring',
       'Add commercial modules later'
     ],
-    bestFor: 'School and regional competition operations'
+    bestFor: 'School and regional competition operations',
+    highlights: [
+      'Create seasons, course layouts, and tournament schedules.',
+      'Manage teams, participant eligibility, and tee groups.',
+      'Run FLI nine-hole repeated rounds and scorekeeper approval.',
+      'Keep fantasy, payouts, sponsorship, and community workflows disabled.'
+    ]
   },
   custom: {
     name: 'Custom',
@@ -180,7 +218,13 @@ const templateDetails: Record<
       'Configure teams and courses',
       'Expand the workspace as needed'
     ],
-    bestFor: 'A tailored organization workspace'
+    bestFor: 'A tailored organization workspace',
+    highlights: [
+      'Start with the League operations required to run events.',
+      'Choose commercial, fantasy, or community modules deliberately.',
+      'Configure seasons, teams, courses, tournaments, and groups.',
+      'Add advanced workflow capabilities as the operation grows.'
+    ]
   }
 };
 
@@ -197,18 +241,18 @@ export function StartGuide({
   readonly onRegistered?: (setup: OrganizationSetup) => void;
   readonly organizations: readonly OrganizationDto[];
 }) {
-  const [step, setStep] = useState(0);
-  const [template, setTemplate] = useState<TemplateId>('fli-basic');
-  const [organizationName, setOrganizationName] = useState('');
+  const [step, setStep] = useState(1);
+  const [template, setTemplate] = useState<TemplateId>('custom');
+  const [organizationName, setOrganizationName] = useState('Custom Demo League');
   const [selectedComponents, setSelectedComponents] = useState<
     readonly string[]
-  >(templateDetails['fli-basic'].selected);
-  const [departments, setDepartments] = useState<readonly DepartmentSetup[]>([
-    { id: 'dept-1', name: '', headName: '' }
-  ]);
+  >(templateDetails.custom.selected);
+  const [departments, setDepartments] = useState<readonly DepartmentSetup[]>(
+    seededDepartmentsByOrganization['org-custom']
+  );
   const [registered, setRegistered] = useState(false);
   const [selectedSeedId, setSelectedSeedId] = useState<string | undefined>(
-    undefined
+    'org-custom'
   );
 
   const details = templateDetails[template];
@@ -282,6 +326,12 @@ export function StartGuide({
     setOrganizationName(organization.name);
     setTemplate(nextTemplate);
     setSelectedComponents(organization.enabledComponents);
+    setDepartments(
+      seededDepartmentsByOrganization[organization.id] ?? [
+        { id: 'dept-1', name: '', headName: '' }
+      ]
+    );
+    setStep(1);
     setRegistered(false);
   };
 
@@ -322,6 +372,34 @@ export function StartGuide({
         </div>
       </div>
 
+      {step === 0 && (
+        <Card>
+          <CardContent className="grid gap-5 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="organization-name">Organization name</Label>
+              <Input
+                id="organization-name"
+                placeholder="Example School or FLI Golf"
+                value={organizationName}
+                onChange={(event) => {
+                  setOrganizationName(event.target.value);
+                  setRegistered(false);
+                }}
+              />
+            </div>
+            <div className="border-l-2 border-primary/40 pl-4">
+              <p className="text-sm font-medium">Your operating sequence</p>
+              <ol className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
+                <li>1. Create seasons and their purses.</li>
+                <li>2. Add professional teams and courses.</li>
+                <li>3. Schedule tournaments and tee groups.</li>
+                <li>4. Assign scorekeepers and run scoring.</li>
+              </ol>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {organizations.length > 0 && (
         <Card className="border-violet-500/30 bg-violet-500/10">
           <CardHeader>
@@ -337,34 +415,32 @@ export function StartGuide({
             {organizations.map((organization) => (
               <div
                 key={organization.id}
-                className={`rounded-lg border bg-background/60 p-4 transition-colors ${
+                className={`border bg-background/60 p-4 transition-colors ${
                   selectedSeedId === organization.id
                     ? 'border-primary ring-2 ring-primary/30'
                     : ''
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <p className="font-medium">{organization.name}</p>
-                  {selectedSeedId === organization.id && (
-                    <Badge>Selected</Badge>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {organization.id} ·{' '}
-                  {organization.enabledComponents.length.toString()} components
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {organization.enabledComponents.map((componentId) => (
-                    <Badge key={componentId} variant="secondary" className="text-xs">
-                      {componentLabels.get(componentId) ?? componentId}
-                    </Badge>
-                  ))}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold">{organization.name}</p>
+                      {selectedSeedId === organization.id && (
+                        <Badge>Selected</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {organization.id} · {organization.type} organization ·{' '}
+                      {organization.enabledComponents.length.toString()} components
+                      {organization.paysTeams ? ' · team payouts enabled' : ''}
+                    </p>
+                  </div>
                 </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="mt-4 w-full"
+                  className="self-start"
                   onClick={() => {
                     selectSeededOrganization(organization);
                   }}
@@ -450,36 +526,31 @@ export function StartGuide({
                       </li>
                     ))}
                   </ul>
+                  {active && (
+                    <div className="mt-4 border-t pt-3">
+                      <p className="text-xs font-medium text-foreground">
+                        Enabled modules
+                      </p>
+                      <ul className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground">
+                        {option.selected.map((componentId) => (
+                          <li key={componentId} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked
+                              readOnly
+                              tabIndex={-1}
+                              className="size-3.5 accent-emerald-600"
+                            />
+                            {componentLabels.get(componentId) ?? componentId}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </button>
               );
             })}
           </div>
-
-          <Card>
-            <CardContent className="grid gap-5 pt-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div className="flex flex-col gap-2">
-              <Label htmlFor="organization-name">Organization name</Label>
-              <Input
-                id="organization-name"
-                placeholder="Example School or FLI Golf"
-                value={organizationName}
-                onChange={(event) => {
-                  setOrganizationName(event.target.value);
-                  setRegistered(false);
-                }}
-              />
-              </div>
-              <div className="border-l-2 border-primary/40 pl-4">
-                <p className="text-sm font-medium">Your operating sequence</p>
-                <ol className="mt-2 flex flex-col gap-1 text-sm text-muted-foreground">
-                  <li>1. Create seasons and their purses.</li>
-                  <li>2. Add professional teams and courses.</li>
-                  <li>3. Schedule tournaments and tee groups.</li>
-                  <li>4. Assign scorekeepers and run scoring.</li>
-                </ol>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       )}
 
@@ -500,6 +571,17 @@ export function StartGuide({
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
+            <div className="border-b pb-5">
+              <h3 className="font-medium">What this setup includes</h3>
+              <ul className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                {details.highlights.map((highlight) => (
+                  <li key={highlight} className="flex gap-2">
+                    <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                    <span>{highlight}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
             <div>
               <div className="flex items-center justify-between gap-4">
                 <div>

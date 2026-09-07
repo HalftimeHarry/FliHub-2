@@ -1,8 +1,9 @@
-import { Building2 } from 'lucide-react';
+import { Building2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AppNavbar, type AppView } from '@/components/app-navbar.js';
 import { Dashboard } from '@/components/dashboard.js';
 import { Badge } from '@/components/ui/badge.js';
+import { Button } from '@/components/ui/button.js';
 import { ObjectDiagram } from '@/components/object-diagram.js';
 import { Pipelines } from '@/components/pipelines.js';
 import {
@@ -27,9 +28,12 @@ import {
 } from '@/components/ui/select.js';
 import {
   createOrganizationAdmin,
+  deleteCustomOrganization,
   fetchOrganization,
   fetchUsers,
   getOrganizationCatalog,
+  getUserCatalog,
+  isCustomOrganization,
   registerCustomOrganization,
   registerOrganizationDepartments,
   seedDefaultOrganizations,
@@ -132,13 +136,17 @@ function OrganizationOverview({
   currentUser,
   userCount,
   organization,
-  setup
+  setup,
+  canDelete,
+  onDelete
 }: {
   readonly organizationId: string;
   readonly currentUser: UserDto | undefined;
   readonly userCount: number;
   readonly organization: OrganizationDto | undefined;
   readonly setup: OrganizationSetup | undefined;
+  readonly canDelete: boolean;
+  readonly onDelete: () => void;
 }) {
   const organizationName =
     setup?.organizationName ??
@@ -165,6 +173,18 @@ function OrganizationOverview({
           The organization is the first boundary for your League and Business
           workspace.
         </CardDescription>
+        {canDelete && (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="self-start"
+            onClick={onDelete}
+          >
+            <Trash2 />
+            Delete organization
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg bg-background/60 p-3">
@@ -380,6 +400,28 @@ export function App() {
                 currentUser={currentUser}
                 organization={organization}
                 setup={organizationSetup}
+                canDelete={isCustomOrganization(organizationId)}
+                onDelete={() => {
+                  if (!window.confirm(`Delete ${organization?.name ?? organizationId}? This removes its local admin and departments.`)) {
+                    return;
+                  }
+                  deleteCustomOrganization(organizationId);
+                  const nextOrganizationId = 'fgl';
+                  const nextUsers = getUserCatalog();
+                  const nextUser = nextUsers.find(
+                    (user) => user.id === 'admin-1'
+                  );
+                  setOrganizations(getOrganizationCatalog());
+                  setUsers(nextUsers);
+                  setOrganizationSetup(undefined);
+                  setActiveOrganization(nextOrganizationId);
+                  setSelectedOrganizationId(nextOrganizationId);
+                  if (nextUser !== undefined) {
+                    setActiveUser(nextUser.id);
+                    setCurrentUserId(nextUser.id);
+                  }
+                  setActiveView('start-guide');
+                }}
                 userCount={
                   users.filter((user) => user.organizationId === organizationId)
                     .length

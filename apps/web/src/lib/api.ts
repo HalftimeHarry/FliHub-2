@@ -284,6 +284,48 @@ export const registerCustomOrganization = (
   return nextOrganization;
 };
 
+export const isCustomOrganization = (
+  organizationId: string,
+  storage: Storage | undefined = getStorage()
+): boolean =>
+  readCustomOrganizations(storage).some(
+    (organization) => organization.id === organizationId
+  );
+
+export const deleteCustomOrganization = (
+  organizationId: string,
+  storage: Storage | undefined = getStorage()
+): void => {
+  if (!isCustomOrganization(organizationId, storage) || storage === undefined) {
+    throw new Error('Only locally registered organizations can be deleted.');
+  }
+
+  storage.setItem(
+    customOrganizationsStorageKey,
+    JSON.stringify(
+      readCustomOrganizations(storage).filter(
+        (organization) => organization.id !== organizationId
+      )
+    )
+  );
+  storage.setItem(
+    customUsersStorageKey,
+    JSON.stringify(
+      readCustomUsers(storage).filter(
+        (user) => user.organizationId !== organizationId
+      )
+    )
+  );
+  storage.setItem(
+    customDepartmentsStorageKey,
+    JSON.stringify(
+      readCustomDepartments(storage).filter(
+        (department) => department.organizationId !== organizationId
+      )
+    )
+  );
+};
+
 const isUserDto = (value: unknown): value is UserDto =>
   typeof value === 'object' &&
   value !== null &&
@@ -748,6 +790,13 @@ const getDemoJson = (path: string): unknown => {
     if (customDepartments.length > 0) {
       return customDepartments;
     }
+  }
+
+  const isDemoOrganization = demoOrganizations.some(
+    (organization) => organization.id === organizationId
+  );
+  if (!isDemoOrganization) {
+    return [];
   }
 
   return demoData[path] ?? [];
