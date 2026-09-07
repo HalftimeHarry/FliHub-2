@@ -23,7 +23,6 @@ import {
   makeDraftPick,
   openDraft,
   seedFantasy,
-  seedLeague,
   type CourseDto,
   type DepartmentDto,
   type DraftRoomDto,
@@ -41,6 +40,7 @@ import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
 import { Label } from '@/components/ui/label.js';
+import { ObjectSelect } from '@/components/object-select.js';
 import {
   Card,
   CardContent,
@@ -209,21 +209,13 @@ function AddTournamentForm({
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="new-tournament-course">Course</Label>
-        <select
-          id="new-tournament-course"
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-          value={courseId}
-          onChange={(event) => {
-            setCourseId(event.target.value);
-          }}
-        >
-          <option value="">None</option>
-          {courses.map((course) => (
-            <option key={course.id} value={course.id}>
-              {course.name}
-            </option>
-          ))}
-        </select>
+          <ObjectSelect
+            id="new-tournament-course"
+            value={courseId}
+            onValueChange={setCourseId}
+            options={courses.map((course) => ({ id: course.id, label: course.name }))}
+            placeholder="No course"
+          />
       </div>
       <Button type="submit" disabled={name.trim().length < 2 || submitting}>
         {submitting ? 'Adding…' : 'Add tournament'}
@@ -299,39 +291,29 @@ function AddTeamForm({
         </div>
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="new-team-male">Male player</Label>
-          <select
+          <ObjectSelect
             id="new-team-male"
-            className="h-9 rounded-md border bg-background px-3 text-sm"
             value={malePlayerId}
-            onChange={(event) => {
-              setMalePlayerId(event.target.value);
-            }}
-          >
-            <option value="">Select</option>
-            {malePlayers.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.displayName}
-              </option>
-            ))}
-          </select>
+            onValueChange={setMalePlayerId}
+            options={malePlayers.map((player) => ({
+              id: player.id,
+              label: player.displayName
+            }))}
+            placeholder="Select player"
+          />
         </div>
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="new-team-female">Female player</Label>
-          <select
+          <ObjectSelect
             id="new-team-female"
-            className="h-9 rounded-md border bg-background px-3 text-sm"
             value={femalePlayerId}
-            onChange={(event) => {
-              setFemalePlayerId(event.target.value);
-            }}
-          >
-            <option value="">Select</option>
-            {femalePlayers.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.displayName}
-              </option>
-            ))}
-          </select>
+            onValueChange={setFemalePlayerId}
+            options={femalePlayers.map((player) => ({
+              id: player.id,
+              label: player.displayName
+            }))}
+            placeholder="Select player"
+          />
         </div>
         <Button
           type="submit"
@@ -462,21 +444,13 @@ function AddHoleForm({
     >
       <div className="flex flex-1 flex-col gap-2">
         <Label htmlFor="new-hole-course">Course</Label>
-        <select
-          id="new-hole-course"
-          className="h-9 rounded-md border bg-background px-3 text-sm"
-          value={courseId}
-          onChange={(event) => {
-            setCourseId(event.target.value);
-          }}
-        >
-          <option value="">Select course</option>
-          {courses.map((course) => (
-            <option key={course.id} value={course.id}>
-              {course.name}
-            </option>
-          ))}
-        </select>
+          <ObjectSelect
+            id="new-hole-course"
+            value={courseId}
+            onValueChange={setCourseId}
+            options={courses.map((course) => ({ id: course.id, label: course.name }))}
+            placeholder="Select course"
+          />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="new-hole-number">Number</Label>
@@ -731,41 +705,33 @@ function AddFantasyTeamForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="new-fantasy-team-league">League</Label>
-          <select
+          <ObjectSelect
             id="new-fantasy-team-league"
-            className="h-9 rounded-md border bg-background px-3 text-sm"
             value={fantasyLeagueId}
-            onChange={(event) => {
-              setFantasyLeagueId(event.target.value);
+            onValueChange={(value) => {
+              setFantasyLeagueId(value);
               setOwnerId('');
             }}
-          >
-            <option value="">Select league</option>
-            {leagues.map((league) => (
-              <option key={league.id} value={league.id}>
-                {league.name}
-              </option>
-            ))}
-          </select>
+            options={leagues.map((league) => ({
+              id: league.id,
+              label: league.name
+            }))}
+            placeholder="Select league"
+          />
         </div>
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="new-fantasy-team-owner">Owner</Label>
-          <select
+          <ObjectSelect
             id="new-fantasy-team-owner"
-            className="h-9 rounded-md border bg-background px-3 text-sm"
             value={ownerId}
-            onChange={(event) => {
-              setOwnerId(event.target.value);
-            }}
+            onValueChange={setOwnerId}
+            options={eligibleOwners.map((player) => ({
+              id: player.id,
+              label: player.displayName
+            }))}
+            placeholder="Select owner"
             disabled={fantasyLeagueId === ''}
-          >
-            <option value="">Select owner</option>
-            {eligibleOwners.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.displayName}
-              </option>
-            ))}
-          </select>
+          />
         </div>
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="new-fantasy-team-name">Team name</Label>
@@ -864,21 +830,16 @@ function CreateDraftForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-2">
           <Label htmlFor="draft-league">Fantasy league</Label>
-          <select
+          <ObjectSelect
             id="draft-league"
-            className="h-9 rounded-md border bg-background px-3 text-sm"
             value={fantasyLeagueId}
-            onChange={(event) => {
-              setFantasyLeagueId(event.target.value);
-            }}
-          >
-            <option value="">Select league</option>
-            {leagues.map((league) => (
-              <option key={league.id} value={league.id}>
-                {league.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={setFantasyLeagueId}
+            options={leagues.map((league) => ({
+              id: league.id,
+              label: league.name
+            }))}
+            placeholder="Select league"
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="draft-timer">Pick timer (s)</Label>
@@ -1057,22 +1018,16 @@ function DraftBoardCard({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor={`pick-${draft.id}`}>Select player</Label>
-              <select
+              <ObjectSelect
                 id={`pick-${draft.id}`}
-                className="h-9 rounded-md border bg-background px-3 text-sm"
                 value={selectedPlayerId}
-                onChange={(event) => {
-                  setSelectedPlayerId(event.target.value);
-                }}
-              >
-                <option value="">Choose…</option>
-                {available.map((player) => (
-                  <option key={player.id} value={player.id}>
-                    {playerName(players, player.id)} (
-                    {player.gender === 'male' ? 'M' : 'F'})
-                  </option>
-                ))}
-              </select>
+                onValueChange={setSelectedPlayerId}
+                options={available.map((player) => ({
+                  id: player.id,
+                  label: `${playerName(players, player.id)} (${player.gender === 'male' ? 'M' : 'F'})`
+                }))}
+                placeholder="Choose player"
+              />
             </div>
             <Button
               type="button"
@@ -1166,14 +1121,6 @@ export function Dashboard({
   readonly onDepartmentsChanged?: () => void;
 }) {
   const [data, setData] = useState<DashboardData | undefined>(undefined);
-  const [seeding, setSeeding] = useState(false);
-  const [seedError, setSeedError] = useState<string | undefined>(undefined);
-  const [seedParams, setSeedParams] = useState({
-    tournaments: '3',
-    courses: '1',
-    holesPerCourse: '18',
-    teams: '2'
-  });
 
   useEffect(() => {
     let cancelled = false;
@@ -1230,109 +1177,6 @@ export function Dashboard({
     };
   }, [refreshKey]);
 
-  const runSeed = async () => {
-    setSeeding(true);
-    setSeedError(undefined);
-    try {
-      await seedLeague({
-        tournaments: Number(seedParams.tournaments) || 0,
-        courses: Number(seedParams.courses) || 0,
-        holesPerCourse: Number(seedParams.holesPerCourse) || 18,
-        teams: Number(seedParams.teams) || 0
-      });
-      onDepartmentsChanged?.();
-    } catch (caught) {
-      setSeedError(
-        caught instanceof Error ? caught.message : 'Seeding failed.'
-      );
-    } finally {
-      setSeeding(false);
-    }
-  };
-
-  const SeedControls = () => (
-    <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-4">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="seed-tournaments">Tournaments</Label>
-          <Input
-            id="seed-tournaments"
-            type="number"
-            min={0}
-            className="w-24"
-            value={seedParams.tournaments}
-            onChange={(event) => {
-              setSeedParams((current) => ({
-                ...current,
-                tournaments: event.target.value
-              }));
-            }}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="seed-courses">Courses</Label>
-          <Input
-            id="seed-courses"
-            type="number"
-            min={0}
-            className="w-24"
-            value={seedParams.courses}
-            onChange={(event) => {
-              setSeedParams((current) => ({
-                ...current,
-                courses: event.target.value
-              }));
-            }}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="seed-holes">Holes / course</Label>
-          <Input
-            id="seed-holes"
-            type="number"
-            min={1}
-            className="w-24"
-            value={seedParams.holesPerCourse}
-            onChange={(event) => {
-              setSeedParams((current) => ({
-                ...current,
-                holesPerCourse: event.target.value
-              }));
-            }}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="seed-teams">Teams</Label>
-          <Input
-            id="seed-teams"
-            type="number"
-            min={0}
-            className="w-24"
-            value={seedParams.teams}
-            onChange={(event) => {
-              setSeedParams((current) => ({
-                ...current,
-                teams: event.target.value
-              }));
-            }}
-          />
-        </div>
-        <Button
-          type="button"
-          disabled={seeding}
-          onClick={() => {
-            void runSeed();
-          }}
-        >
-          {seeding ? 'Seeding…' : 'Seed league data'}
-        </Button>
-      </div>
-      {seedError !== undefined && (
-        <p className="text-sm text-destructive">{seedError}</p>
-      )}
-    </div>
-  );
-
   return (
     <Card>
       <CardHeader>
@@ -1387,7 +1231,6 @@ export function Dashboard({
           </TabsContent>
           <TabsContent value="teams">
             <div className="flex flex-col gap-4">
-              <SeedControls />
               <AddTeamForm
                 players={data?.players ?? []}
                 onAdded={onDepartmentsChanged}
@@ -1416,7 +1259,6 @@ export function Dashboard({
           </TabsContent>
           <TabsContent value="tournaments">
             <div className="flex flex-col gap-4">
-              <SeedControls />
               <AddTournamentForm
                 courses={data?.courses ?? []}
                 onAdded={onDepartmentsChanged}
@@ -1451,7 +1293,6 @@ export function Dashboard({
           </TabsContent>
           <TabsContent value="courses">
             <div className="flex flex-col gap-4">
-              <SeedControls />
               <AddCourseForm onAdded={onDepartmentsChanged} />
               <Table>
                 <TableHeader>
@@ -1503,24 +1344,24 @@ export function Dashboard({
           </TabsContent>
           <TabsContent value="registrations">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tournament</TableHead>
-                  <TableHead>Player</TableHead>
-                  <TableHead>Registered at</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.registrations.map((registration) => (
-                  <TableRow key={registration.id}>
-                    <TableCell>{registration.tournamentId}</TableCell>
-                    <TableCell>{registration.playerId}</TableCell>
-                    <TableCell>
-                      {new Date(registration.registeredAt).toLocaleString()}
-                    </TableCell>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tournament</TableHead>
+                    <TableHead>Player</TableHead>
+                    <TableHead>Registered at</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
+                </TableHeader>
+                <TableBody>
+                  {data?.registrations.map((registration) => (
+                    <TableRow key={registration.id}>
+                      <TableCell>{registration.tournamentId}</TableCell>
+                      <TableCell>{registration.playerId}</TableCell>
+                      <TableCell>
+                        {new Date(registration.registeredAt).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
             </Table>
           </TabsContent>
           <TabsContent value="fantasy">

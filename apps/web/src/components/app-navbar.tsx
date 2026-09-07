@@ -1,8 +1,8 @@
-import { Network, Rocket } from 'lucide-react';
+import { Network, Rocket, Workflow } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle.js';
 import { Button } from '@/components/ui/button.js';
 
-export type AppView = 'home' | 'diagram' | 'start-guide';
+export type AppView = 'home' | 'diagram' | 'pipelines' | 'start-guide';
 
 export function AppNavbar({
   activeView,
@@ -36,6 +36,17 @@ export function AppNavbar({
             >
               <Network />
               Diagram
+            </Button>
+            <Button
+              variant={activeView === 'pipelines' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => {
+                onViewChange('pipelines');
+              }}
+              aria-current={activeView === 'pipelines' ? 'page' : undefined}
+            >
+              <Workflow />
+              Pipelines
             </Button>
             <Button
               variant={activeView === 'start-guide' ? 'secondary' : 'ghost'}

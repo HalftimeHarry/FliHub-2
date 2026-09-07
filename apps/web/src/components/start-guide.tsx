@@ -4,7 +4,6 @@ import {
   ClipboardCheck,
   Code2,
   CircleOff,
-  Database,
   Flag,
   Layers3,
   Sparkles,
@@ -24,7 +23,7 @@ import {
 } from '@/components/ui/card.js';
 import { Input } from '@/components/ui/input.js';
 import { Label } from '@/components/ui/label.js';
-import { seedDefaultOrganizations, type OrganizationDto } from '@/lib/api.js';
+import { type OrganizationDto } from '@/lib/api.js';
 
 export type TemplateId = 'fli-golf' | 'fli-basic' | 'custom';
 
@@ -168,9 +167,11 @@ const templateIcons: Record<TemplateId, typeof Trophy> = {
 };
 
 export function StartGuide({
-  onRegistered
+  onRegistered,
+  organizations
 }: {
   readonly onRegistered?: (setup: OrganizationSetup) => void;
+  readonly organizations: readonly OrganizationDto[];
 }) {
   const [step, setStep] = useState(0);
   const [template, setTemplate] = useState<TemplateId>('fli-basic');
@@ -182,13 +183,9 @@ export function StartGuide({
     { id: 'dept-1', name: '', headName: '' }
   ]);
   const [registered, setRegistered] = useState(false);
-  const [seededOrganizations, setSeededOrganizations] = useState<
-    readonly OrganizationDto[]
-  >([]);
   const [selectedSeedId, setSelectedSeedId] = useState<string | undefined>(
     undefined
   );
-  const [seeding, setSeeding] = useState(false);
 
   const details = templateDetails[template];
   const TemplateIcon = templateIcons[template];
@@ -240,15 +237,6 @@ export function StartGuide({
       current.filter((department) => department.id !== id)
     );
     setRegistered(false);
-  };
-
-  const seedOrganizations = async () => {
-    setSeeding(true);
-    try {
-      setSeededOrganizations(await seedDefaultOrganizations());
-    } finally {
-      setSeeding(false);
-    }
   };
 
   const selectSeededOrganization = (organization: OrganizationDto) => {
@@ -304,21 +292,10 @@ export function StartGuide({
             Walk through the setup wizard: pick a starting format, choose
             components, define departments and their heads, then register.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={seeding}
-            onClick={() => {
-              void seedOrganizations();
-            }}
-          >
-            <Database />
-            {seeding ? 'Seeding defaults…' : 'Seed default organizations'}
-          </Button>
         </div>
       </div>
 
-      {seededOrganizations.length > 0 && (
+      {organizations.length > 0 && (
         <Card className="border-violet-500/30 bg-violet-500/10">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -330,7 +307,7 @@ export function StartGuide({
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 md:grid-cols-3">
-            {seededOrganizations.map((organization) => (
+            {organizations.map((organization) => (
               <div
                 key={organization.id}
                 className={`rounded-lg border bg-background/60 p-4 transition-colors ${

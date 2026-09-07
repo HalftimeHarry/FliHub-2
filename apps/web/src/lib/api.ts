@@ -814,6 +814,15 @@ export const addTeam = (input: {
   readonly femalePlayerId: string;
 }) => postJson<TeamDto>('/league/teams', input);
 
+export const registerPlayerForTournament = (input: {
+  readonly playerId: string;
+  readonly tournamentId: string;
+}) =>
+  postJson<TournamentRegistrationDto>(
+    '/league/tournament-registrations',
+    input
+  );
+
 export const addFantasyLeague = (input: {
   readonly name: string;
   readonly participantIds?: readonly string[];

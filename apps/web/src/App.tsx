@@ -4,6 +4,7 @@ import { AppNavbar, type AppView } from '@/components/app-navbar.js';
 import { Dashboard } from '@/components/dashboard.js';
 import { Badge } from '@/components/ui/badge.js';
 import { ObjectDiagram } from '@/components/object-diagram.js';
+import { Pipelines } from '@/components/pipelines.js';
 import {
   componentOptions,
   StartGuide,
@@ -285,6 +286,7 @@ export function App() {
         <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
           {activeView === 'start-guide' ? (
             <StartGuide
+              organizations={organizations}
               onRegistered={(setup) => {
                 const customOrganization = registerCustomOrganization({
                   name: setup.organizationName,
@@ -321,6 +323,8 @@ export function App() {
             />
           ) : activeView === 'diagram' ? (
             <ObjectDiagram refreshKey={refreshKey} />
+          ) : activeView === 'pipelines' ? (
+            <Pipelines />
           ) : (
             <>
               <header className="flex flex-col gap-4">

@@ -138,43 +138,175 @@ export const createBusinessRepositories = () => ({
 export const createLeagueRepositories = () => ({
   players: new InMemoryPlayerRepository([
     Player.create({
-      id: 'player-1',
+      id: 'simon-lizotte',
       organizationId: 'fgl',
-      displayName: 'Alex Rivera',
+      displayName: 'Simon Lizotte',
       playerType: 'professional',
       gender: 'male'
     }),
     Player.create({
-      id: 'player-2',
+      id: 'kat-mertsch',
       organizationId: 'fgl',
-      displayName: 'Jordan Blake',
+      displayName: 'Kat Mertsch',
       playerType: 'professional',
       gender: 'female'
     }),
     Player.create({
-      id: 'player-3',
+      id: 'isaac-robinson',
       organizationId: 'fgl',
-      displayName: 'Sam Okafor',
+      displayName: 'Isaac Robinson',
       playerType: 'professional',
       gender: 'male'
     }),
     Player.create({
-      id: 'player-4',
+      id: 'missy-gannon',
       organizationId: 'fgl',
-      displayName: 'Casey Nguyen',
+      displayName: 'Missy Gannon',
       playerType: 'professional',
       gender: 'female'
     }),
     Player.create({
-      id: 'player-5',
+      id: 'paul-mcbeth',
       organizationId: 'fgl',
-      displayName: 'Morgan Lee',
-      active: false,
+      displayName: 'Paul McBeth',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'holyn-handley',
+      organizationId: 'fgl',
+      displayName: 'Holyn Handley',
       playerType: 'professional',
       gender: 'female'
     }),
     Player.create({
-      id: 'player-6',
+      id: 'anthony-barela',
+      organizationId: 'fgl',
+      displayName: 'Anthony Barela',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'hailey-king',
+      organizationId: 'fgl',
+      displayName: 'Hailey King',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'chris-dickerson',
+      organizationId: 'fgl',
+      displayName: 'Chris Dickerson',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'paige-pierce',
+      organizationId: 'fgl',
+      displayName: 'Paige Pierce',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'kyle-klein',
+      organizationId: 'fgl',
+      displayName: 'Kyle Klein',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'silva-saarinen',
+      organizationId: 'fgl',
+      displayName: 'Silva Saarinen',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'niklas-anttila',
+      organizationId: 'fgl',
+      displayName: 'Niklas Anttila',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'heidi-laine',
+      organizationId: 'fgl',
+      displayName: 'Heidi Laine',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'calvin-heimburg',
+      organizationId: 'fgl',
+      displayName: 'Calvin Heimburg',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'ohn-scoggins',
+      organizationId: 'fgl',
+      displayName: 'Ohn Scoggins',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'ezra-robinson',
+      organizationId: 'fgl',
+      displayName: 'Ezra Robinson',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'natalie-ryan',
+      organizationId: 'fgl',
+      displayName: 'Natalie Ryan',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'ricky-wysocki',
+      organizationId: 'fgl',
+      displayName: 'Ricky Wysocki',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'evelina-salonen',
+      organizationId: 'fgl',
+      displayName: 'Evelina Salonen',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'gannon-buhr',
+      organizationId: 'fgl',
+      displayName: 'Gannon Buhr',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'kristin-latt',
+      organizationId: 'fgl',
+      displayName: 'Kristin Latt',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'matthew-orum',
+      organizationId: 'fgl',
+      displayName: 'Matthew Orum',
+      playerType: 'professional',
+      gender: 'male'
+    }),
+    Player.create({
+      id: 'ella-hansen',
+      organizationId: 'fgl',
+      displayName: 'Ella Hansen',
+      playerType: 'professional',
+      gender: 'female'
+    }),
+    Player.create({
+      id: 'avery-brooks',
       organizationId: 'org-2',
       displayName: 'Avery Brooks',
       playerType: 'student',
@@ -184,18 +316,88 @@ export const createLeagueRepositories = () => ({
   ]),
   teams: new InMemoryTeamRepository([
     Team.create({
-      id: 'team-1',
+      id: 'ace-makers',
       organizationId: 'fgl',
-      name: 'Rivera & Blake',
-      malePlayerId: 'player-1',
-      femalePlayerId: 'player-2'
+      name: 'Ace Makers',
+      malePlayerId: 'simon-lizotte',
+      femalePlayerId: 'kat-mertsch'
     }),
     Team.create({
-      id: 'team-2',
+      id: 'birdie-storm',
       organizationId: 'fgl',
-      name: 'Okafor & Nguyen',
-      malePlayerId: 'player-3',
-      femalePlayerId: 'player-4'
+      name: 'Birdie Storm',
+      malePlayerId: 'isaac-robinson',
+      femalePlayerId: 'missy-gannon'
+    }),
+    Team.create({
+      id: 'chain-breakers',
+      organizationId: 'fgl',
+      name: 'Chain Breakers',
+      malePlayerId: 'paul-mcbeth',
+      femalePlayerId: 'holyn-handley'
+    }),
+    Team.create({
+      id: 'chain-seekers',
+      organizationId: 'fgl',
+      name: 'Chain Seekers',
+      malePlayerId: 'anthony-barela',
+      femalePlayerId: 'hailey-king'
+    }),
+    Team.create({
+      id: 'disc-dynasty',
+      organizationId: 'fgl',
+      name: 'Disc Dynasty',
+      malePlayerId: 'chris-dickerson',
+      femalePlayerId: 'paige-pierce'
+    }),
+    Team.create({
+      id: 'disc-jesters',
+      organizationId: 'fgl',
+      name: 'Disc Jesters',
+      malePlayerId: 'kyle-klein',
+      femalePlayerId: 'silva-saarinen'
+    }),
+    Team.create({
+      id: 'fairway-bombers',
+      organizationId: 'fgl',
+      name: 'Fairway Bombers',
+      malePlayerId: 'niklas-anttila',
+      femalePlayerId: 'heidi-laine'
+    }),
+    Team.create({
+      id: 'flight-squad',
+      organizationId: 'fgl',
+      name: 'Flight Squad',
+      malePlayerId: 'calvin-heimburg',
+      femalePlayerId: 'ohn-scoggins'
+    }),
+    Team.create({
+      id: 'glide-masters',
+      organizationId: 'fgl',
+      name: 'Glide Masters',
+      malePlayerId: 'ezra-robinson',
+      femalePlayerId: 'natalie-ryan'
+    }),
+    Team.create({
+      id: 'huk-a-mania',
+      organizationId: 'fgl',
+      name: 'Huk-a-Mania',
+      malePlayerId: 'ricky-wysocki',
+      femalePlayerId: 'evelina-salonen'
+    }),
+    Team.create({
+      id: 'hyzer-heros',
+      organizationId: 'fgl',
+      name: 'Hyzer Heros',
+      malePlayerId: 'gannon-buhr',
+      femalePlayerId: 'kristin-latt'
+    }),
+    Team.create({
+      id: 'midas-touch',
+      organizationId: 'fgl',
+      name: 'Midas Touch',
+      malePlayerId: 'matthew-orum',
+      femalePlayerId: 'ella-hansen'
     })
   ]),
   tournaments: new InMemoryTournamentRepository([
@@ -269,16 +471,16 @@ export const createFantasyRepositories = () => ({
       id: 'fantasy-league-1',
       organizationId: 'fgl',
       name: 'FLI Golf Fantasy',
-      participantIds: ['player-1', 'player-2']
+      participantIds: ['simon-lizotte', 'kat-mertsch']
     })
   ]),
   teams: new InMemoryFantasyTeamRepository([
     FantasyTeam.create({
       id: 'fantasy-team-1',
       fantasyLeagueId: 'fantasy-league-1',
-      ownerId: 'player-1',
-      name: "Rivera's Aces",
-      playerIds: ['player-3', 'player-4']
+      ownerId: 'simon-lizotte',
+      name: "Simon's Aces",
+      playerIds: ['isaac-robinson', 'missy-gannon']
     })
   ]),
   drafts: new InMemoryDraftRoomRepository()
