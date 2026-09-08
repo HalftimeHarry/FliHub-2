@@ -12,6 +12,7 @@
   "dependencies": {
     "@flihub/business": "*",
     "@flihub/core": "*",
+    "@flihub/fantasy": "*",
     "@flihub/league": "*",
     "@flihub/workflows": "*",
     "express": "^4.21.2"

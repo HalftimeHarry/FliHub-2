@@ -58,7 +58,8 @@ const defaultProperties: Record<string, readonly string[]> = {
     'id',
     'seasonId',
     'name',
-    'capacity',
+    'type',
+    'scoringHoleCount',
     'startDate',
     'registrationDeadline',
     'status'

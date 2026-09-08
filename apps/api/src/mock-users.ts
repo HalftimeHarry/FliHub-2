@@ -1,4 +1,6 @@
-export type UserRole = 'player' | 'business_staff' | 'admin';
+import type { UserRole } from '@flihub/core';
+
+export type { UserRole };
 
 export interface MockUser {
   readonly id: string;
@@ -6,6 +8,7 @@ export interface MockUser {
   readonly organizationId: string;
   readonly role: UserRole;
   readonly playerId?: string;
+  readonly canScorekeep?: boolean;
 }
 
 export const mockUsers: readonly MockUser[] = [
@@ -36,10 +39,70 @@ export const mockUsers: readonly MockUser[] = [
     role: 'business_staff'
   },
   {
+    id: 'scorekeeper-1',
+    name: 'Priya Desai',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-2',
+    name: 'Cameron Holt',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-3',
+    name: 'Marisol Vega',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-4',
+    name: 'Theo Bennett',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-5',
+    name: 'Nina Park',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-6',
+    name: 'Owen Grant',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
     id: 'admin-1',
     name: 'Morgan Reyes',
     organizationId: 'fgl',
     role: 'admin'
+  },
+  {
+    id: 'leader-1',
+    name: 'Dakota Shaw',
+    organizationId: 'fgl',
+    role: 'leader'
+  },
+  {
+    id: 'manager-1',
+    name: 'Jordan Ellis',
+    organizationId: 'fgl',
+    role: 'manager'
+  },
+  {
+    id: 'broadcaster-1',
+    name: 'Skyler Ames',
+    organizationId: 'fgl',
+    role: 'broadcaster'
   },
   {
     id: 'staff-3',

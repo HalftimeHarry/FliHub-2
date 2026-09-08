@@ -1,9 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
+import { hasPermission, type Action, type Scope, type UserRole } from '@flihub/core';
 import type { MockUser } from './mock-users.js';
 
 export interface OrganizationRequest extends Request {
   readonly organizationId: string;
   readonly userId: string;
+  readonly userRole: UserRole;
 }
 
 export const createOrganizationContextMiddleware =
@@ -32,7 +34,33 @@ export const createOrganizationContextMiddleware =
         enumerable: true,
         value: user.id,
         writable: false
+      },
+      userRole: {
+        configurable: false,
+        enumerable: true,
+        value: user.role,
+        writable: false
       }
     });
+    next();
+  };
+
+/**
+ * Adapted from FLI-Golf/FliHub's PermissionGuard: require the caller's role to
+ * hold the given resource permission before reaching the handler.
+ */
+export const requirePermission =
+  (resource: string, action: Action = 'read', scope: Scope = 'all') =>
+  (request: Request, response: Response, next: NextFunction): void => {
+    const role = (request as Partial<OrganizationRequest>).userRole;
+
+    if (role === undefined || !hasPermission(role, resource, action, scope)) {
+      response.status(403).json({
+        code: 'authorization.forbidden',
+        message: `Your role cannot ${action} ${resource}.`
+      });
+      return;
+    }
+
     next();
   };

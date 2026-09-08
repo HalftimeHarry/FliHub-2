@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "FLIHub Fantasy domain boundary placeholder.",
-  "exports": "./src/index.ts"
+  "description": "FLIHub Fantasy domain: fantasy leagues, teams, and rosters.",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@flihub/core": "*",
+    "@flihub/persistence": "*"
+  }
 }

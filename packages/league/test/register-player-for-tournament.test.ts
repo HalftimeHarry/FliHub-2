@@ -33,7 +33,7 @@ describe('createTournamentRegistrationWorkflow', () => {
     );
   });
 
-  it('registers an active player when capacity is available', async () => {
+  it('registers an active player for a scheduled tournament', async () => {
     const workflow = createTournamentRegistrationWorkflow({
       players: new InMemoryPlayerRepository([
         Player.create({
@@ -47,8 +47,7 @@ describe('createTournamentRegistrationWorkflow', () => {
           id: 'tournament-1',
           organizationId: 'fgl',
           seasonId: 'season-1',
-          name: 'Opening Cup',
-          capacity: 2
+          name: 'Opening Cup'
         })
       ]),
       registrations: new InMemoryTournamentRegistrationRepository()
@@ -87,8 +86,7 @@ describe('createTournamentRegistrationWorkflow', () => {
           id: 'tournament-1',
           organizationId: 'fgl',
           seasonId: 'season-1',
-          name: 'Opening Cup',
-          capacity: 2
+          name: 'Opening Cup'
         })
       ]),
       registrations: new InMemoryTournamentRegistrationRepository()
