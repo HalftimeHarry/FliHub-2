@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getUserCatalog,
   getOrganizationCatalog,
   registerCustomOrganization
 } from './api.js';
@@ -43,5 +44,24 @@ describe('organization catalog', () => {
     expect(customOrganization.id).toBe('hawks-valley-academy');
     expect(catalog.some((organization) => organization.id === 'hawks-valley-academy')).toBe(true);
     expect(catalog.some((organization) => organization.name === 'FLI Golf')).toBe(true);
+  });
+});
+
+describe('FLI Golf scorekeepers', () => {
+  it('includes all six assigned scorekeepers in the user catalog', () => {
+    const scorekeeperIds = getUserCatalog()
+      .filter(
+        (user) => user.organizationId === 'fgl' && user.canScorekeep === true
+      )
+      .map((user) => user.id);
+
+    expect(scorekeeperIds).toEqual([
+      'scorekeeper-1',
+      'scorekeeper-2',
+      'scorekeeper-3',
+      'scorekeeper-4',
+      'scorekeeper-5',
+      'scorekeeper-6'
+    ]);
   });
 });

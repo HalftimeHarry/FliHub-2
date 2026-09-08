@@ -29,7 +29,7 @@ export function ObjectSelect({
   readonly className?: string;
 }) {
   return (
-    <Select value={value || undefined} onValueChange={onValueChange} disabled={disabled}>
+    <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger id={id} className={className ?? 'w-full'}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

@@ -86,6 +86,32 @@ export interface TournamentTeeGroupDto {
   readonly teeTime: string;
   readonly teamIds: readonly string[];
   readonly teamNames: readonly string[];
+  readonly scorekeeperId?: string;
+  readonly scorekeeperName?: string;
+}
+
+export interface TournamentTeeGroupScorecardDto {
+  readonly groupId: string;
+  readonly tournamentId: string;
+  readonly tournamentName: string;
+  readonly courseName: string;
+  readonly holeCount: number;
+  readonly players: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly teamName: string;
+  }[];
+  readonly holes: readonly {
+    readonly number: number;
+    readonly name: string;
+    readonly par: number;
+    readonly distanceFeet?: number;
+  }[];
+  readonly scores: readonly {
+    readonly holeNumber: number;
+    readonly playerId: string;
+    readonly strokes: number;
+  }[];
 }
 
 export interface SeasonDto {
@@ -163,6 +189,7 @@ export interface UserDto {
   readonly organizationId: string;
   readonly role: UserRole;
   readonly playerId?: string;
+  readonly canScorekeep?: boolean;
 }
 
 export interface OrganizationDto {
@@ -546,10 +573,76 @@ const demoUsers: readonly UserDto[] = [
     role: 'business_staff'
   },
   {
+    id: 'staff-2',
+    name: 'Taylor Morgan',
+    organizationId: 'fgl',
+    role: 'business_staff'
+  },
+  {
+    id: 'scorekeeper-1',
+    name: 'Priya Desai',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-2',
+    name: 'Cameron Holt',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-3',
+    name: 'Marisol Vega',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-4',
+    name: 'Theo Bennett',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-5',
+    name: 'Nina Park',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-6',
+    name: 'Owen Grant',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
     id: 'admin-1',
     name: 'Morgan Reyes',
     organizationId: 'fgl',
     role: 'admin'
+  },
+  {
+    id: 'leader-1',
+    name: 'Dakota Shaw',
+    organizationId: 'fgl',
+    role: 'leader'
+  },
+  {
+    id: 'manager-1',
+    name: 'Jordan Ellis',
+    organizationId: 'fgl',
+    role: 'manager'
+  },
+  {
+    id: 'broadcaster-1',
+    name: 'Skyler Ames',
+    organizationId: 'fgl',
+    role: 'broadcaster'
   },
   {
     id: 'staff-3',
@@ -829,6 +922,37 @@ export const seedTournamentTeeGroups = (tournamentId: string) =>
   postJson<{ readonly tournamentId: string; readonly created: number }>(
     `/league/tournaments/${tournamentId}/tee-groups/seed`,
     {}
+  );
+export const assignTournamentTeeGroupScorekeeper = (
+  tournamentId: string,
+  groupId: string,
+  scorekeeperId: string | undefined
+) =>
+  putJson<{}>(
+    `/league/tournaments/${tournamentId}/tee-groups/${groupId}/scorekeeper`,
+    { scorekeeperId }
+  );
+export const assignAllTournamentTeeGroupScorekeepers = (tournamentId: string) =>
+  postJson<{ readonly assigned: number }>(
+    `/league/tournaments/${tournamentId}/tee-groups/scorekeepers/assign-all`,
+    {}
+  );
+export const fetchTournamentTeeGroupScorecard = (
+  tournamentId: string,
+  groupId: string
+) =>
+  getJson<TournamentTeeGroupScorecardDto>(
+    `/league/tournaments/${tournamentId}/tee-groups/${groupId}/scorecard`
+  );
+export const saveTournamentTeeGroupHoleScores = (
+  tournamentId: string,
+  groupId: string,
+  holeNumber: number,
+  playerScores: Readonly<Record<string, number>>
+) =>
+  putJson<{}>(
+    `/league/tournaments/${tournamentId}/tee-groups/${groupId}/scorecard/holes/${holeNumber.toString()}`,
+    { playerScores }
   );
 export const clearTournamentTeeGroups = async (
   tournamentId: string

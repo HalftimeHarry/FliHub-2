@@ -6,7 +6,8 @@ export class TournamentTeeGroup {
     public readonly tournamentId: Identifier,
     public readonly number: number,
     public readonly teeTime: string,
-    public readonly teamIds: readonly Identifier[]
+    public readonly teamIds: readonly Identifier[],
+    public readonly scorekeeperId: Identifier | undefined
   ) {}
 
   public static create(input: {
@@ -15,6 +16,7 @@ export class TournamentTeeGroup {
     number: number;
     teeTime: string;
     teamIds: readonly string[];
+    scorekeeperId?: string;
   }): TournamentTeeGroup {
     if (!Number.isInteger(input.number) || input.number < 1) {
       throw new DomainError(
@@ -40,7 +42,10 @@ export class TournamentTeeGroup {
       Identifier.create(input.tournamentId, 'tournament id'),
       input.number,
       input.teeTime,
-      input.teamIds.map((teamId) => Identifier.create(teamId, 'team id'))
+      input.teamIds.map((teamId) => Identifier.create(teamId, 'team id')),
+      input.scorekeeperId === undefined
+        ? undefined
+        : Identifier.create(input.scorekeeperId, 'scorekeeper id')
     );
   }
 }

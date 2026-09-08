@@ -45,6 +45,14 @@ app.use(
 const businessRepositories = createBusinessRepositories();
 const leagueRepositories = createLeagueRepositories();
 const fantasyRepositories = createFantasyRepositories();
+const teeGroupScores = new Map<string, Map<number, Record<string, number>>>();
+
+const clearTournamentTeeGroupScores = async (tournamentId: Identifier) => {
+  const groups = await leagueRepositories.teeGroups.listForTournament(tournamentId);
+  for (const group of groups) {
+    teeGroupScores.delete(group.id.value);
+  }
+};
 
 const submitReimbursementClaim =
   createSubmitReimbursementClaimWorkflow(businessRepositories);
@@ -177,6 +185,10 @@ app.get('/', (_req, res) => {
       'GET /league/tournaments',
       'GET /league/tournaments/:id/tee-groups',
       'POST /league/tournaments/:id/tee-groups/seed',
+      'PUT /league/tournaments/:id/tee-groups/:groupId/scorekeeper',
+      'POST /league/tournaments/:id/tee-groups/scorekeepers/assign-all',
+      'GET /league/tournaments/:id/tee-groups/:groupId/scorecard',
+      'PUT /league/tournaments/:id/tee-groups/:groupId/scorecard/holes/:holeNumber',
       'DELETE /league/tournaments/:id/tee-groups',
       'POST /league/tournaments/tee-groups/seed-all',
       'POST /league/tournaments',
@@ -823,7 +835,11 @@ app.get(
           teamIds: group.teamIds.map((teamId) => teamId.value),
           teamNames: group.teamIds.map(
             (teamId) => teamNames.get(teamId.value) ?? teamId.value
-          )
+          ),
+          scorekeeperId: group.scorekeeperId?.value,
+          scorekeeperName: mockUsers.find(
+            (user) => user.id === group.scorekeeperId?.value
+          )?.name
         }))
       );
     });
@@ -857,11 +873,238 @@ app.post(
         return;
       }
       const groups = createTeeGroups(tournament, organizationTeams);
+      await clearTournamentTeeGroupScores(tournament.id);
       await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
       await Promise.all(
         groups.map((group) => leagueRepositories.teeGroups.save(group))
       );
       res.status(201).json({ tournamentId: tournament.id.value, created: groups.length });
+    });
+  }
+);
+
+app.put(
+  '/league/tournaments/:id/tee-groups/:groupId/scorekeeper',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const tournamentId = Identifier.create(req.params.id, 'tournament id');
+    const groupId = Identifier.create(req.params.groupId, 'tournament tee group id');
+    const body = req.body as { scorekeeperId?: string };
+    void Promise.all([
+      leagueRepositories.tournaments.findById(tournamentId),
+      leagueRepositories.teeGroups.findById(groupId)
+    ]).then(async ([tournament, group]) => {
+      if (
+        tournament?.organizationId.value !== req.organizationId ||
+        group === undefined ||
+        !group.tournamentId.equals(tournamentId)
+      ) {
+        res.status(404).json({
+          code: 'league.tournament_tee_group.not_found',
+          message: 'Tee group could not be resolved for this organization.'
+        });
+        return;
+      }
+
+      const scorekeeper =
+        body.scorekeeperId === undefined
+          ? undefined
+          : mockUsers.find((user) => user.id === body.scorekeeperId);
+      if (
+        body.scorekeeperId !== undefined &&
+        (scorekeeper === undefined ||
+          scorekeeper.organizationId !== req.organizationId ||
+          !scorekeeper.canScorekeep)
+      ) {
+        res.status(400).json({
+          code: 'league.tournament_tee_group.invalid_scorekeeper',
+          message: 'Scorekeeper must be an approved scorekeeper in this organization.'
+        });
+        return;
+      }
+
+      const updatedGroup = TournamentTeeGroup.create({
+        id: group.id.value,
+        tournamentId: group.tournamentId.value,
+        number: group.number,
+        teeTime: group.teeTime,
+        teamIds: group.teamIds.map((teamId) => teamId.value),
+        scorekeeperId: scorekeeper?.id
+      });
+      await leagueRepositories.teeGroups.save(updatedGroup);
+      res.json({});
+    });
+  }
+);
+
+app.post(
+  '/league/tournaments/:id/tee-groups/scorekeepers/assign-all',
+  requirePermission('league', 'write'),
+  (req: OrganizationRequest, res) => {
+    const tournamentId = Identifier.create(req.params.id, 'tournament id');
+    void Promise.all([
+      leagueRepositories.tournaments.findById(tournamentId),
+      leagueRepositories.teeGroups.listForTournament(tournamentId)
+    ]).then(async ([tournament, groups]) => {
+      if (tournament?.organizationId.value !== req.organizationId) {
+        res.status(404).json({
+          code: 'league.tournament.not_found',
+          message: 'Tournament could not be resolved for this organization.'
+        });
+        return;
+      }
+      if (groups.length !== 6) {
+        res.status(400).json({
+          code: 'league.tournament_tee_group.requires_six_groups',
+          message: 'Seed all six tee groups before assigning scorekeepers.'
+        });
+        return;
+      }
+
+      const scorekeepers = mockUsers.filter(
+        (user) =>
+          user.organizationId === req.organizationId && user.canScorekeep
+      );
+      if (scorekeepers.length < 6) {
+        res.status(400).json({
+          code: 'league.tournament_tee_group.requires_six_scorekeepers',
+          message: 'At least six organization scorekeepers are required.'
+        });
+        return;
+      }
+
+      await Promise.all(
+        groups.map((group, index) =>
+          leagueRepositories.teeGroups.save(
+            TournamentTeeGroup.create({
+              id: group.id.value,
+              tournamentId: group.tournamentId.value,
+              number: group.number,
+              teeTime: group.teeTime,
+              teamIds: group.teamIds.map((teamId) => teamId.value),
+              scorekeeperId: scorekeepers[index].id
+            })
+          )
+        )
+      );
+      res.json({ assigned: groups.length });
+    });
+  }
+);
+
+app.get(
+  '/league/tournaments/:id/tee-groups/:groupId/scorecard',
+  (req: OrganizationRequest, res) => {
+    const tournamentId = Identifier.create(req.params.id, 'tournament id');
+    const groupId = Identifier.create(req.params.groupId, 'tournament tee group id');
+    void Promise.all([
+      leagueRepositories.tournaments.findById(tournamentId),
+      leagueRepositories.teeGroups.findById(groupId),
+      leagueRepositories.teams.list(),
+      leagueRepositories.players.list(),
+      leagueRepositories.courses.list(),
+      leagueRepositories.holes.list()
+    ]).then(([tournament, group, teams, players, courses, holes]) => {
+      if (
+        tournament?.organizationId.value !== req.organizationId ||
+        group === undefined ||
+        !group.tournamentId.equals(tournamentId)
+      ) {
+        res.status(404).json({ message: 'Tee group could not be resolved for this organization.' });
+        return;
+      }
+      const groupTeams = group.teamIds
+        .map((teamId) => teams.find((team) => team.id.equals(teamId)))
+        .filter((team): team is Team => team !== undefined);
+      const courseHoles = holes
+        .filter((hole) => hole.courseId.equals(tournament.courseId))
+        .sort((left, right) => left.number - right.number);
+      const holeCount = tournament.type === 'fli' ? 18 : courseHoles.length;
+      const course = courses.find((entry) => entry.id.equals(tournament.courseId));
+      const scoreEntries = teeGroupScores.get(group.id.value) ?? new Map();
+      res.json({
+        groupId: group.id.value,
+        tournamentId: tournament.id.value,
+        tournamentName: tournament.name,
+        courseName: course?.name ?? 'Course',
+        holeCount,
+        players: groupTeams.flatMap((team) => [team.malePlayerId, team.femalePlayerId].map((playerId) => ({
+          id: playerId.value,
+          name: players.find((player) => player.id.equals(playerId))?.displayName ?? playerId.value,
+          teamName: team.name
+        }))),
+        holes: Array.from({ length: holeCount }, (_, index) => {
+          const hole = courseHoles[index % courseHoles.length];
+          return {
+            number: index + 1,
+            name: hole?.name ?? `Hole ${(index + 1).toString()}`,
+            par: hole?.par ?? 3,
+            distanceFeet: hole?.distanceFeet
+          };
+        }),
+        scores: [...scoreEntries.entries()].flatMap(([holeNumber, scores]) =>
+          Object.entries(scores).map(([playerId, strokes]) => ({ holeNumber, playerId, strokes }))
+        )
+      });
+    });
+  }
+);
+
+app.put(
+  '/league/tournaments/:id/tee-groups/:groupId/scorecard/holes/:holeNumber',
+  (req: OrganizationRequest, res) => {
+    const tournamentId = Identifier.create(req.params.id, 'tournament id');
+    const groupId = Identifier.create(req.params.groupId, 'tournament tee group id');
+    const holeNumber = Number.parseInt(req.params.holeNumber, 10);
+    const body = req.body as { playerScores?: Record<string, number> };
+    void Promise.all([
+      leagueRepositories.tournaments.findById(tournamentId),
+      leagueRepositories.teeGroups.findById(groupId),
+      leagueRepositories.teams.list(),
+      leagueRepositories.holes.list()
+    ]).then(([tournament, group, teams, holes]) => {
+      if (
+        tournament?.organizationId.value !== req.organizationId ||
+        group === undefined ||
+        !group.tournamentId.equals(tournamentId)
+      ) {
+        res.status(404).json({ message: 'Tee group could not be resolved for this organization.' });
+        return;
+      }
+      if (
+        req.userId !== group.scorekeeperId?.value &&
+        req.userRole !== 'admin' &&
+        req.userRole !== 'leader'
+      ) {
+        res.status(403).json({ message: 'Only the assigned scorekeeper can record this group.' });
+        return;
+      }
+      const holeCount = tournament.type === 'fli'
+        ? 18
+        : holes.filter((hole) => hole.courseId.equals(tournament.courseId)).length;
+      const playerIds = new Set(
+        group.teamIds.flatMap((teamId) => {
+          const team = teams.find((entry) => entry.id.equals(teamId));
+          return team === undefined ? [] : [team.malePlayerId.value, team.femalePlayerId.value];
+        })
+      );
+      const scores = body.playerScores;
+      if (
+        !Number.isInteger(holeNumber) ||
+        holeNumber < 1 ||
+        holeNumber > holeCount ||
+        scores === undefined ||
+        playerIds.size !== 4 ||
+        Object.keys(scores).length !== playerIds.size ||
+        [...playerIds].some((playerId) => !Number.isInteger(scores[playerId]) || scores[playerId] < 1)
+      ) {
+        res.status(400).json({ message: 'Provide a positive whole-number score for every player in this group.' });
+        return;
+      }
+      const groupScores = teeGroupScores.get(group.id.value) ?? new Map();
+      groupScores.set(holeNumber, scores);
+      teeGroupScores.set(group.id.value, groupScores);
+      res.json({});
     });
   }
 );
@@ -880,6 +1123,7 @@ app.delete(
           });
           return;
         }
+        await clearTournamentTeeGroupScores(tournament.id);
         await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
         res.json({});
       }
@@ -911,6 +1155,7 @@ app.post(
           tournament.type === 'fli'
       );
       for (const tournament of eligibleTournaments) {
+        await clearTournamentTeeGroupScores(tournament.id);
         await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
         await Promise.all(
           createTeeGroups(tournament, organizationTeams).map((group) =>

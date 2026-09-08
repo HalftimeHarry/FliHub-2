@@ -8,6 +8,8 @@ import {
   addOrganizationDepartment,
   addTeam,
   addTournament,
+  assignAllTournamentTeeGroupScorekeepers,
+  assignTournamentTeeGroupScorekeeper,
   createSeason,
   deleteSeason,
   deleteCourse,
@@ -21,12 +23,14 @@ import {
   fetchFantasyLeagues,
   fetchFantasyTeams,
   fetchHoles,
+  fetchOrganizationUsers,
   fetchPlayers,
   fetchProjects,
   fetchReimbursementClaims,
   fetchSeasons,
   fetchTeams,
   fetchTournamentRegistrations,
+  fetchTournamentTeeGroupScorecard,
   fetchTournamentTeeGroups,
   clearTournamentTeeGroups,
   fetchTournaments,
@@ -36,6 +40,7 @@ import {
   seedSixTournaments,
   seedTurfParadiseLayout,
   seedTournamentTeeGroups,
+  saveTournamentTeeGroupHoleScores,
   seedAllTournamentTeeGroups,
   updateTournament,
   updateCourse,
@@ -53,7 +58,9 @@ import {
   type TeamDto,
   type TournamentDto,
   type TournamentTeeGroupDto,
-  type TournamentRegistrationDto
+  type TournamentTeeGroupScorecardDto,
+  type TournamentRegistrationDto,
+  type UserDto
 } from '@/lib/api.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
@@ -95,6 +102,7 @@ interface DashboardData {
   readonly fantasyLeagues: readonly FantasyLeagueDto[];
   readonly fantasyTeams: readonly FantasyTeamDto[];
   readonly drafts: readonly DraftRoomDto[];
+  readonly users: readonly UserDto[];
 }
 
 type PlayerSortKey = 'id' | 'displayName' | 'team' | 'playerType' | 'active';
@@ -390,7 +398,6 @@ function AddTournamentForm({
   const [error, setError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [seeding, setSeeding] = useState(false);
-  const [seedingAll, setSeedingAll] = useState(false);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -622,13 +629,22 @@ function EditTournamentModal({
 }
 
 function TournamentSetup({
-  tournaments
+  tournaments,
+  courses,
+  users
 }: {
   readonly tournaments: readonly TournamentDto[];
+  readonly courses: readonly CourseDto[];
+  readonly users: readonly UserDto[];
 }) {
   const [tournamentId, setTournamentId] = useState('');
   const [groups, setGroups] = useState<readonly TournamentTeeGroupDto[]>([]);
   const [seeding, setSeeding] = useState(false);
+  const [seedingAll, setSeedingAll] = useState(false);
+  const [assigningAllScorekeepers, setAssigningAllScorekeepers] = useState(false);
+  const [assigningGroupId, setAssigningGroupId] = useState<string | undefined>(
+    undefined
+  );
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -640,6 +656,7 @@ function TournamentSetup({
   }, [tournamentId]);
 
   const tournament = tournaments.find((entry) => entry.id === tournamentId);
+  const course = courses.find((entry) => entry.id === tournament?.courseId);
 
   const seedGroups = async () => {
     if (tournamentId === '') return;
@@ -687,6 +704,51 @@ function TournamentSetup({
       );
     } finally {
       setSeedingAll(false);
+    }
+  };
+
+  const assignScorekeeper = async (
+    groupId: string,
+    scorekeeperId: string | undefined
+  ) => {
+    if (tournamentId === '') return;
+    setAssigningGroupId(groupId);
+    setError(undefined);
+    try {
+      await assignTournamentTeeGroupScorekeeper(
+        tournamentId,
+        groupId,
+        scorekeeperId
+      );
+      setGroups(await fetchTournamentTeeGroups(tournamentId));
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not assign scorekeeper.'
+      );
+    } finally {
+      setAssigningGroupId(undefined);
+    }
+  };
+
+  const scorekeepers = users.filter((user) => user.canScorekeep === true);
+
+  const assignAllScorekeepers = async () => {
+    if (tournamentId === '') return;
+    setAssigningAllScorekeepers(true);
+    setError(undefined);
+    try {
+      await assignAllTournamentTeeGroupScorekeepers(tournamentId);
+      setGroups(await fetchTournamentTeeGroups(tournamentId));
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not assign scorekeepers.'
+      );
+    } finally {
+      setAssigningAllScorekeepers(false);
     }
   };
 
@@ -748,6 +810,29 @@ function TournamentSetup({
               ? 'Season event'
               : new Date(tournament.scheduledOn).toLocaleDateString()}
           </p>
+          {course !== undefined && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Course: {course.name}
+            </p>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="mt-4"
+            disabled={
+              scorekeepers.length < 6 ||
+              assigningAllScorekeepers ||
+              assigningGroupId !== undefined
+            }
+            onClick={() => {
+              void assignAllScorekeepers();
+            }}
+          >
+            {assigningAllScorekeepers
+              ? 'Assigning scorekeepers...'
+              : 'Set all scorekeepers'}
+          </Button>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {groups.map((group) => (
               <div key={group.id} className="border bg-background p-3">
@@ -760,6 +845,45 @@ function TournamentSetup({
                     <li key={teamName}>{teamName}</li>
                   ))}
                 </ul>
+                <div className="mt-4 flex flex-col gap-2">
+                  <Label htmlFor={`scorekeeper-${group.id}`}>
+                    Scorekeeper
+                  </Label>
+                  <ObjectSelect
+                    id={`scorekeeper-${group.id}`}
+                    value={group.scorekeeperId ?? ''}
+                    onValueChange={(scorekeeperId) => {
+                      void assignScorekeeper(group.id, scorekeeperId);
+                    }}
+                    options={scorekeepers.map((user) => ({
+                      id: user.id,
+                      label: user.name
+                    }))}
+                    placeholder={
+                      assigningGroupId === group.id
+                        ? 'Assigning...'
+                        : 'Assign scorekeeper'
+                    }
+                    disabled={
+                      assigningGroupId !== undefined || assigningAllScorekeepers
+                    }
+                  />
+                  {group.scorekeeperName !== undefined && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={
+                        assigningGroupId !== undefined || assigningAllScorekeepers
+                      }
+                      onClick={() => {
+                        void assignScorekeeper(group.id, undefined);
+                      }}
+                    >
+                      Clear scorekeeper
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -772,6 +896,228 @@ function TournamentSetup({
       )}
       {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
     </section>
+  );
+}
+
+function ScorekeeperWorklist({
+  user,
+  tournaments,
+  courses
+}: {
+  readonly user: UserDto | undefined;
+  readonly tournaments: readonly TournamentDto[];
+  readonly courses: readonly CourseDto[];
+}) {
+  const [groups, setGroups] = useState<
+    readonly (TournamentTeeGroupDto & { readonly tournament: TournamentDto })[]
+  >([]);
+  const [selectedGroup, setSelectedGroup] = useState<
+    (TournamentTeeGroupDto & { readonly tournament: TournamentDto }) | undefined
+  >(undefined);
+  const [scorecard, setScorecard] = useState<
+    TournamentTeeGroupScorecardDto | undefined
+  >(undefined);
+  const [holeIndex, setHoleIndex] = useState(0);
+  const [scores, setScores] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (user?.canScorekeep !== true) {
+      setGroups([]);
+      return;
+    }
+
+    let cancelled = false;
+    void Promise.all(
+      tournaments.map(async (tournament) =>
+        (await fetchTournamentTeeGroups(tournament.id)).map((group) => ({
+          ...group,
+          tournament
+        }))
+      )
+    ).then((groupSets) => {
+      if (!cancelled) {
+        setGroups(
+          groupSets
+            .flat()
+            .filter((group) => group.scorekeeperId === user.id)
+        );
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tournaments, user]);
+
+  useEffect(() => {
+    if (selectedGroup === undefined) {
+      setScorecard(undefined);
+      return;
+    }
+    let cancelled = false;
+    void fetchTournamentTeeGroupScorecard(
+      selectedGroup.tournament.id,
+      selectedGroup.id
+    ).then((nextScorecard) => {
+      if (!cancelled) {
+        setScorecard(nextScorecard);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroup]);
+
+  useEffect(() => {
+    if (scorecard === undefined) return;
+    const currentHoleNumber = scorecard.holes[holeIndex]?.number;
+    setScores(
+      Object.fromEntries(
+        scorecard.players.map((player) => [
+          player.id,
+          String(
+            scorecard.scores.find(
+              (score) =>
+                score.holeNumber === currentHoleNumber &&
+                score.playerId === player.id
+            )?.strokes ?? ''
+          )
+        ])
+      )
+    );
+  }, [holeIndex, scorecard]);
+
+  if (user?.canScorekeep !== true) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select a scorekeeper from Viewing as to access assigned groups.
+      </p>
+    );
+  }
+
+  const currentHole = scorecard?.holes[holeIndex];
+  const completedHoles = new Set(
+    scorecard?.scores.map((score) => score.holeNumber) ?? []
+  ).size;
+  const totalRelativeToPar = (playerId: string) =>
+    (scorecard?.scores ?? []).reduce((total, score) => {
+      if (score.playerId !== playerId) return total;
+      const par = scorecard?.holes.find(
+        (hole) => hole.number === score.holeNumber
+      )?.par;
+      return total + (par === undefined ? 0 : score.strokes - par);
+    }, 0);
+  const formatRelativeToPar = (value: number) =>
+    value === 0 ? 'E' : value > 0 ? `+${value.toString()}` : value.toString();
+
+  const saveHole = async (advance: boolean) => {
+    if (selectedGroup === undefined || scorecard === undefined || currentHole === undefined) return;
+    const playerScores = Object.fromEntries(
+      scorecard.players.map((player) => [player.id, Number(scores[player.id])])
+    );
+    if (Object.values(playerScores).some((score) => !Number.isInteger(score) || score < 1)) {
+      setError('Enter a positive whole-number score for every player.');
+      return;
+    }
+    setSaving(true);
+    setError(undefined);
+    try {
+      await saveTournamentTeeGroupHoleScores(
+        selectedGroup.tournament.id,
+        selectedGroup.id,
+        currentHole.number,
+        playerScores
+      );
+      const nextScorecard = await fetchTournamentTeeGroupScorecard(
+        selectedGroup.tournament.id,
+        selectedGroup.id
+      );
+      setScorecard(nextScorecard);
+      if (advance && holeIndex < nextScorecard.holeCount - 1) {
+        setHoleIndex((current) => current + 1);
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not save scores.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h3 className="font-medium">{user.name}&apos;s assigned groups</h3>
+        <p className="text-sm text-muted-foreground">
+          Score the tee groups assigned to you.
+        </p>
+      </div>
+      {groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No tee groups are assigned to you yet.
+        </p>
+      ) : (
+        <>
+          {selectedGroup === undefined || scorecard === undefined || currentHole === undefined ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {groups.map((group) => (
+                <div key={group.id} className="border bg-background p-3">
+                  <p className="font-medium">{group.tournament.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Group {group.number} · {group.teeTime}
+                  </p>
+                  <ul className="mt-3 flex flex-col gap-1 text-sm text-muted-foreground">
+                    {group.teamNames.map((teamName) => <li key={teamName}>{teamName}</li>)}
+                  </ul>
+                  <Button type="button" className="mt-4" onClick={() => {
+                    setSelectedGroup(group);
+                    setHoleIndex(0);
+                    setError(undefined);
+                  }}>
+                    Score group
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <section className="border bg-background p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h4 className="font-medium">{scorecard.tournamentName} · Group {selectedGroup.number}</h4>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Hole {currentHole.number}/{scorecard.holeCount} · {currentHole.name} · Par {currentHole.par}
+                    {currentHole.distanceFeet === undefined ? '' : ` · ${currentHole.distanceFeet.toString()} ft`}
+                  </p>
+                </div>
+                <Badge variant="outline">{completedHoles.toString()}/{scorecard.holeCount} saved</Badge>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {scorecard.players.map((player) => (
+                  <div key={player.id} className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <Label htmlFor={`score-${player.id}`}>{player.name} · {player.teamName}</Label>
+                      <Input id={`score-${player.id}`} type="number" min={1} step={1} value={scores[player.id] ?? ''} onChange={(event) => {
+                        setScores((current) => ({ ...current, [player.id]: event.target.value }));
+                      }} />
+                    </div>
+                    <Badge variant="outline">{formatRelativeToPar(totalRelativeToPar(player.id))}</Badge>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" disabled={saving || holeIndex === 0} onClick={() => { setHoleIndex((current) => current - 1); }}>Previous</Button>
+                <Button type="button" disabled={saving} onClick={() => { void saveHole(true); }}>
+                  {saving ? 'Saving...' : holeIndex === scorecard.holeCount - 1 ? 'Save final hole' : 'Save and next'}
+                </Button>
+                <Button type="button" variant="ghost" disabled={saving} onClick={() => { setSelectedGroup(undefined); }}>Back to groups</Button>
+              </div>
+            </section>
+          )}
+        </>
+      )}
+      {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
+    </div>
   );
 }
 
@@ -1755,10 +2101,12 @@ function DraftsBoard({
 
 export function Dashboard({
   refreshKey,
-  onDepartmentsChanged
+  onDepartmentsChanged,
+  currentUser
 }: {
   readonly refreshKey: number;
   readonly onDepartmentsChanged?: () => void;
+  readonly currentUser?: UserDto;
 }) {
   const [data, setData] = useState<DashboardData | undefined>(undefined);
   const [editingSeason, setEditingSeason] = useState<SeasonDto | undefined>(undefined);
@@ -1795,7 +2143,8 @@ export function Dashboard({
       fetchReimbursementClaims(),
       fetchFantasyLeagues(),
       fetchFantasyTeams(),
-      fetchDrafts()
+      fetchDrafts(),
+      fetchOrganizationUsers()
     ]).then(
       ([
         players,
@@ -1810,7 +2159,8 @@ export function Dashboard({
         claims,
         fantasyLeagues,
         fantasyTeams,
-        drafts
+        drafts,
+        users
       ]) => {
         if (!cancelled) {
           setData({
@@ -1826,7 +2176,8 @@ export function Dashboard({
             claims,
             fantasyLeagues,
             fantasyTeams,
-            drafts
+            drafts,
+            users
           });
         }
       }
@@ -1975,6 +2326,7 @@ export function Dashboard({
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
             <TabsTrigger value="groups">Groups</TabsTrigger>
+            <TabsTrigger value="scoring">Scoring</TabsTrigger>
             <TabsTrigger value="courses">Courses</TabsTrigger>
             <TabsTrigger value="holes">Holes</TabsTrigger>
             <TabsTrigger value="registrations">Registrations</TabsTrigger>
@@ -2298,7 +2650,18 @@ export function Dashboard({
             </div>
           </TabsContent>
           <TabsContent value="groups">
-            <TournamentSetup tournaments={data?.tournaments ?? []} />
+            <TournamentSetup
+              tournaments={data?.tournaments ?? []}
+              courses={data?.courses ?? []}
+              users={data?.users ?? []}
+            />
+          </TabsContent>
+          <TabsContent value="scoring">
+            <ScorekeeperWorklist
+              user={currentUser}
+              tournaments={data?.tournaments ?? []}
+              courses={data?.courses ?? []}
+            />
           </TabsContent>
           <TabsContent value="courses">
             <div className="flex flex-col gap-4">

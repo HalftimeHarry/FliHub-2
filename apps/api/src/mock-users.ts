@@ -8,6 +8,7 @@ export interface MockUser {
   readonly organizationId: string;
   readonly role: UserRole;
   readonly playerId?: string;
+  readonly canScorekeep?: boolean;
 }
 
 export const mockUsers: readonly MockUser[] = [
@@ -36,6 +37,48 @@ export const mockUsers: readonly MockUser[] = [
     name: 'Taylor Morgan',
     organizationId: 'fgl',
     role: 'business_staff'
+  },
+  {
+    id: 'scorekeeper-1',
+    name: 'Priya Desai',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-2',
+    name: 'Cameron Holt',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-3',
+    name: 'Marisol Vega',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-4',
+    name: 'Theo Bennett',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-5',
+    name: 'Nina Park',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
+  },
+  {
+    id: 'scorekeeper-6',
+    name: 'Owen Grant',
+    organizationId: 'fgl',
+    role: 'business_staff',
+    canScorekeep: true
   },
   {
     id: 'admin-1',

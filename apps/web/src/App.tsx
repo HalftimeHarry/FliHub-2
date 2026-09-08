@@ -84,6 +84,7 @@ function UserSwitcher({
           {users.map((user) => (
             <SelectItem key={user.id} value={user.id}>
               {user.name} · {roleLabels[user.role]}
+              {user.canScorekeep ? ' · Scorekeeper' : ''}
             </SelectItem>
           ))}
         </SelectContent>
@@ -268,6 +269,7 @@ export function App() {
         const savedOrganization = window.localStorage.getItem(
           'flihub-active-organization'
         );
+        const savedUserId = window.localStorage.getItem('flihub-active-user');
         const nextOrganizationId =
           savedOrganization ??
           getOrganizationCatalog().find((organization) => organization.id === 'fgl')
@@ -275,9 +277,15 @@ export function App() {
           seeded[0].id;
         setActiveOrganization(nextOrganizationId);
         setSelectedOrganizationId(nextOrganizationId);
-        const matchingUser = fetchedUsers.find(
-          (user) => user.organizationId === nextOrganizationId
-        );
+        const matchingUser =
+          fetchedUsers.find(
+            (user) =>
+              user.id === savedUserId &&
+              user.organizationId === nextOrganizationId
+          ) ??
+          fetchedUsers.find(
+            (user) => user.organizationId === nextOrganizationId
+          );
         if (matchingUser !== undefined) {
           setActiveUser(matchingUser.id);
           setCurrentUserId(matchingUser.id);
@@ -286,7 +294,7 @@ export function App() {
         }
       }
     );
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => {
     void fetchOrganization().then(setOrganization);
@@ -430,6 +438,7 @@ export function App() {
               <Dashboard
                 refreshKey={refreshKey}
                 onDepartmentsChanged={refreshDashboard}
+                currentUser={currentUser}
               />
             </>
           )}
