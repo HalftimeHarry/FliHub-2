@@ -59,81 +59,6 @@ const submitReimbursementClaim =
 const registerPlayerForTournament =
   createTournamentRegistrationWorkflow(leagueRepositories);
 
-const turfParadiseHoles = [
-  {
-    number: 1,
-    name: 'Ridge View',
-    description: 'A tight par 3 with a soft dogleg that rewards precision off the tee.',
-    distanceFeet: 210,
-    blueBasketPosition: '210 ft, blue basket setup',
-    redBasketPosition: '220 ft, 10 ft right'
-  },
-  {
-    number: 2,
-    name: 'Canyon Cut',
-    description: 'A mid-range shot with a creek guarding the fairway on the approach.',
-    distanceFeet: 295,
-    blueBasketPosition: '287 ft, 8 ft left',
-    redBasketPosition: '289 ft, 6 ft left'
-  },
-  {
-    number: 3,
-    name: 'Briar Line',
-    description: 'The landing area narrows around a tree line and a fast green.',
-    distanceFeet: 180,
-    blueBasketPosition: '192 ft, 12 ft right',
-    redBasketPosition: '194 ft, 14 ft right'
-  },
-  {
-    number: 4,
-    name: 'Dogleg Drop',
-    description: 'An obstacle-lined hole with a slight left break and a small green.',
-    distanceFeet: 240,
-    blueBasketPosition: '230 ft, 10 ft left',
-    redBasketPosition: '228 ft, 12 ft left'
-  },
-  {
-    number: 5,
-    name: 'Mesa Glide',
-    description: 'A gradually uphill shot with a shallow green and a forgiving right side.',
-    distanceFeet: 330,
-    blueBasketPosition: '345 ft, 15 ft right',
-    redBasketPosition: '348 ft, 18 ft right'
-  },
-  {
-    number: 6,
-    name: 'Pine Capsule',
-    description: 'A compact green surrounded by trees and an elevated tee.',
-    distanceFeet: 150,
-    blueBasketPosition: '164 ft, 14 ft right',
-    redBasketPosition: '166 ft, 16 ft right'
-  },
-  {
-    number: 7,
-    name: 'Desert Drift',
-    description: 'A longer approach that asks for a stable line over the lake hazard.',
-    distanceFeet: 380,
-    blueBasketPosition: '368 ft, 12 ft left',
-    redBasketPosition: '366 ft, 14 ft left'
-  },
-  {
-    number: 8,
-    name: 'After Dark Patio 21+',
-    description: 'The party hole: fans and guests must be 21+ on this side of the course.',
-    distanceFeet: 135,
-    blueBasketPosition: '153 ft, 18 ft right',
-    redBasketPosition: '155 ft, 20 ft right'
-  },
-  {
-    number: 9,
-    name: 'Sunset Finish',
-    description: 'An open finishing hole with enough room to go for the aggressive line.',
-    distanceFeet: 425,
-    blueBasketPosition: '409 ft, 16 ft left',
-    redBasketPosition: '407 ft, 18 ft left'
-  }
-] as const;
-
 const shuffle = <Value>(values: readonly Value[]): Value[] => {
   const shuffled = [...values];
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -203,7 +128,6 @@ app.get('/', (_req, res) => {
       'GET /league/holes',
       'POST /league/holes',
       'POST /league/holes/delete-many',
-      'POST /league/courses/:id/turf-paradise-layout',
       'GET /league/tournament-registrations',
       'POST /league/tournament-registrations',
       'GET /fantasy/leagues',
@@ -732,40 +656,6 @@ app.get('/league/holes', (req: OrganizationRequest, res) => {
     );
   });
 });
-
-app.post(
-  '/league/courses/:id/turf-paradise-layout',
-  requirePermission('league', 'write'),
-  (req: OrganizationRequest, res) => {
-    const courseId = Identifier.create(req.params.id, 'course id');
-    void leagueRepositories.courses.findById(courseId).then(async (course) => {
-      if (course?.organizationId.value !== req.organizationId) {
-        res.status(404).json({
-          code: 'league.course.not_found',
-          message: 'Course could not be resolved for this organization.'
-        });
-        return;
-      }
-      if (course.holeCount !== 9) {
-        res.status(400).json({
-          code: 'league.course.turf_paradise_requires_nine_holes',
-          message: 'The Turf Paradise layout requires a nine-hole course.'
-        });
-        return;
-      }
-      const holes = turfParadiseHoles.map((layout) =>
-        Hole.create({
-          id: `${course.id.value}-hole-${layout.number.toString()}`,
-          courseId: course.id.value,
-          par: 3,
-          ...layout
-        })
-      );
-      await Promise.all(holes.map((hole) => leagueRepositories.holes.save(hole)));
-      res.status(201).json({ courseId: course.id.value, created: holes.length });
-    });
-  }
-);
 
 app.post(
   '/league/holes/delete-many',

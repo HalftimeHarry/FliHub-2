@@ -38,8 +38,9 @@ import {
   openDraft,
   seedFantasy,
   seedSixTournaments,
-  seedTurfParadiseLayout,
   seedTournamentTeeGroups,
+  seedTournamentGroupsAndAssignAllScorekeepers,
+  seedAllTournamentGroupsAndAssignAllScorekeepers,
   saveTournamentTeeGroupHoleScores,
   seedAllTournamentTeeGroups,
   updateTournament,
@@ -62,6 +63,7 @@ import {
   type TournamentRegistrationDto,
   type UserDto
 } from '@/lib/api.js';
+import { formatRelativeToPar, strokesToRelative } from '@/lib/scoring.js';
 import { Badge } from '@/components/ui/badge.js';
 import { Button } from '@/components/ui/button.js';
 import { Input } from '@/components/ui/input.js';
@@ -641,6 +643,7 @@ function TournamentSetup({
   const [groups, setGroups] = useState<readonly TournamentTeeGroupDto[]>([]);
   const [seeding, setSeeding] = useState(false);
   const [seedingAll, setSeedingAll] = useState(false);
+  const [seedAndAssigningAll, setSeedAndAssigningAll] = useState(false);
   const [assigningAllScorekeepers, setAssigningAllScorekeepers] = useState(false);
   const [assigningGroupId, setAssigningGroupId] = useState<string | undefined>(
     undefined
@@ -752,6 +755,42 @@ function TournamentSetup({
     }
   };
 
+  const seedSelectedTournamentGroupsAndSetAllScorekeepers = async () => {
+    if (tournamentId === '') return;
+    setSeedAndAssigningAll(true);
+    setError(undefined);
+    try {
+      setGroups(
+        await seedTournamentGroupsAndAssignAllScorekeepers(tournamentId)
+      );
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not seed selected tournament groups and assign scorekeepers.'
+      );
+    } finally {
+      setSeedAndAssigningAll(false);
+    }
+  };
+
+  const seedAllTournamentsGroupsAndSetAllScorekeepers = async () => {
+    setSeedAndAssigningAll(true);
+    setError(undefined);
+    try {
+      await seedAllTournamentGroupsAndAssignAllScorekeepers();
+      setGroups([]);
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not seed all tournament groups and assign scorekeepers.'
+      );
+    } finally {
+      setSeedAndAssigningAll(false);
+    }
+  };
+
   return (
     <section className="flex flex-col gap-4 rounded-lg border bg-muted/30 p-4">
       <div className="flex flex-col gap-2 sm:max-w-sm">
@@ -795,6 +834,43 @@ function TournamentSetup({
           }}
         >
           {seedingAll ? 'Seeding all...' : 'Seed all groups'}
+        </Button>
+        <Button
+          type="button"
+          variant="default"
+          disabled={
+            tournamentId === '' ||
+            seeding ||
+            seedingAll ||
+            seedAndAssigningAll ||
+            assigningAllScorekeepers ||
+            scorekeepers.length < 6
+          }
+          onClick={() => {
+            void seedSelectedTournamentGroupsAndSetAllScorekeepers();
+          }}
+        >
+          {seedAndAssigningAll
+            ? 'Seeding selected...'
+            : 'Seed selected tournament + scorekeepers'}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={
+            seeding ||
+            seedingAll ||
+            seedAndAssigningAll ||
+            assigningAllScorekeepers ||
+            scorekeepers.length < 6
+          }
+          onClick={() => {
+            void seedAllTournamentsGroupsAndSetAllScorekeepers();
+          }}
+        >
+          {seedAndAssigningAll
+            ? 'Seeding all tournaments...'
+            : 'Seed all tournaments + scorekeepers'}
         </Button>
       </div>
       {tournament !== undefined && groups.length > 0 && (
@@ -973,6 +1049,7 @@ function ScorekeeperWorklist({
   useEffect(() => {
     if (scorecard === undefined) return;
     const currentHoleNumber = scorecard.holes[holeIndex]?.number;
+    const currentPar = scorecard.holes[holeIndex]?.par ?? 3;
     setScores(
       Object.fromEntries(
         scorecard.players.map((player) => [
@@ -982,7 +1059,7 @@ function ScorekeeperWorklist({
               (score) =>
                 score.holeNumber === currentHoleNumber &&
                 score.playerId === player.id
-            )?.strokes ?? ''
+            )?.strokes ?? currentPar
           )
         ])
       )
@@ -1009,13 +1086,43 @@ function ScorekeeperWorklist({
       )?.par;
       return total + (par === undefined ? 0 : score.strokes - par);
     }, 0);
-  const formatRelativeToPar = (value: number) =>
-    value === 0 ? 'E' : value > 0 ? `+${value.toString()}` : value.toString();
+
+  const getPlayerRelativeValue = (playerId: string): number => {
+    if (scorecard === undefined || currentHole === undefined) return 0;
+    const rawValue = scores[playerId];
+    if (rawValue === undefined || rawValue === '') {
+      return 0;
+    }
+    const strokes = Number(rawValue);
+    if (!Number.isFinite(strokes) || strokes < 1) {
+      return 0;
+    }
+    return strokesToRelative(strokes, currentHole.par);
+  };
+
+  const getRelativeBadgeClasses = (value: number): string => {
+    if (value === 0) {
+      return 'border-blue-400 bg-blue-500/10 text-blue-700 dark:text-blue-300';
+    }
+    if (value > 0) {
+      const intensity = Math.min(value, 6);
+      return `border-red-400 bg-red-${500 - (intensity - 1) * 50}/10 text-red-700 dark:text-red-300`;
+    }
+    const intensity = Math.min(Math.abs(value), 6);
+    return `border-emerald-400 bg-emerald-${500 - (intensity - 1) * 50}/10 text-emerald-700 dark:text-emerald-300`;
+  };
+
+  const updatePlayerScore = (playerId: string, delta: number) => {
+    if (scorecard === undefined || currentHole === undefined) return;
+    const currentValue = Number(scores[playerId] ?? currentHole.par);
+    const nextValue = Math.max(1, currentValue + delta);
+    setScores((current) => ({ ...current, [playerId]: String(nextValue) }));
+  };
 
   const saveHole = async (advance: boolean) => {
     if (selectedGroup === undefined || scorecard === undefined || currentHole === undefined) return;
     const playerScores = Object.fromEntries(
-      scorecard.players.map((player) => [player.id, Number(scores[player.id])])
+      scorecard.players.map((player) => [player.id, Number(scores[player.id] ?? currentHole.par)])
     );
     if (Object.values(playerScores).some((score) => !Number.isInteger(score) || score < 1)) {
       setError('Enter a positive whole-number score for every player.');
@@ -1092,18 +1199,52 @@ function ScorekeeperWorklist({
                 </div>
                 <Badge variant="outline">{completedHoles.toString()}/{scorecard.holeCount} saved</Badge>
               </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border bg-slate-50 px-3 py-2 text-sm dark:bg-slate-900/40">
+                <span className="font-medium">Basket:</span>
+                <span className="text-muted-foreground">{scorecard.tournamentName}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="font-medium">Group {selectedGroup.number}</span>
+                <span className="text-muted-foreground">·</span>
+                <span className="rounded border border-blue-400 bg-blue-500/10 px-2 py-0.5 text-blue-700 dark:text-blue-300">Par {currentHole.par}</span>
+              </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {scorecard.players.map((player) => (
-                  <div key={player.id} className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <Label htmlFor={`score-${player.id}`}>{player.name} · {player.teamName}</Label>
-                      <Input id={`score-${player.id}`} type="number" min={1} step={1} value={scores[player.id] ?? ''} onChange={(event) => {
-                        setScores((current) => ({ ...current, [player.id]: event.target.value }));
-                      }} />
+                {scorecard.players.map((player) => {
+                  const currentValue = Number(scores[player.id] ?? currentHole.par);
+                  const relativeValue = getPlayerRelativeValue(player.id);
+                  return (
+                    <div key={player.id} className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Label htmlFor={`score-${player.id}`}>{player.name} · {player.teamName}</Label>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label={`Decrease score for ${player.name}`}
+                            onClick={() => updatePlayerScore(player.id, -1)}
+                          >
+                            −
+                          </Button>
+                          <div className="flex-1 rounded-md border bg-background px-3 py-2 text-center text-lg font-semibold">
+                            {currentValue}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label={`Increase score for ${player.name}`}
+                            onClick={() => updatePlayerScore(player.id, 1)}
+                          >
+                            +
+                          </Button>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={getRelativeBadgeClasses(relativeValue)}>
+                        {formatRelativeToPar(relativeValue)}
+                      </Badge>
                     </div>
-                    <Badge variant="outline">{formatRelativeToPar(totalRelativeToPar(player.id))}</Badge>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button type="button" variant="outline" disabled={saving || holeIndex === 0} onClick={() => { setHoleIndex((current) => current - 1); }}>Previous</Button>
@@ -1366,8 +1507,6 @@ function AddHoleForm({
   const [par, setPar] = useState('3');
   const [error, setError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
-  const [seedingLayout, setSeedingLayout] = useState(false);
-  const selectedCourse = courses.find((course) => course.id === courseId);
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1390,22 +1529,6 @@ function AddHoleForm({
       );
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const seedLayout = async () => {
-    if (courseId === '') return;
-    setSeedingLayout(true);
-    setError(undefined);
-    try {
-      await seedTurfParadiseLayout(courseId);
-      onAdded?.();
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : 'Could not seed Turf Paradise.'
-      );
-    } finally {
-      setSeedingLayout(false);
     }
   };
 
@@ -1455,18 +1578,6 @@ function AddHoleForm({
       <Button type="submit" disabled={courseId === '' || submitting}>
         {submitting ? 'Adding…' : 'Add hole'}
       </Button>
-      {selectedCourse?.holeCount === 9 && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={seedingLayout || submitting}
-          onClick={() => {
-            void seedLayout();
-          }}
-        >
-          {seedingLayout ? 'Seeding layout...' : 'Seed Turf Paradise layout'}
-        </Button>
-      )}
       {error !== undefined && (
         <p className="text-sm text-destructive sm:basis-full">{error}</p>
       )}

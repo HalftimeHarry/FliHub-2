@@ -937,6 +937,60 @@ export const assignAllTournamentTeeGroupScorekeepers = (tournamentId: string) =>
     `/league/tournaments/${tournamentId}/tee-groups/scorekeepers/assign-all`,
     {}
   );
+
+export interface SeedTournamentGroupsAndAssignAllScorekeepersDependencies {
+  readonly seedTournamentTeeGroups: (
+    tournamentId: string
+  ) => Promise<{ readonly tournamentId: string; readonly created: number }>;
+  readonly assignAllTournamentTeeGroupScorekeepers: (
+    tournamentId: string
+  ) => Promise<{ readonly assigned: number }>;
+  readonly fetchTournamentTeeGroups: (
+    tournamentId: string
+  ) => Promise<readonly TournamentTeeGroupDto[]>;
+}
+
+export const seedTournamentGroupsAndAssignAllScorekeepers = async (
+  tournamentId: string,
+  deps: SeedTournamentGroupsAndAssignAllScorekeepersDependencies = {
+    seedTournamentTeeGroups,
+    assignAllTournamentTeeGroupScorekeepers,
+    fetchTournamentTeeGroups
+  }
+): Promise<readonly TournamentTeeGroupDto[]> => {
+  await deps.seedTournamentTeeGroups(tournamentId);
+  await deps.assignAllTournamentTeeGroupScorekeepers(tournamentId);
+  return await deps.fetchTournamentTeeGroups(tournamentId);
+};
+
+export interface SeedAllTournamentGroupsAndAssignAllScorekeepersDependencies {
+  readonly fetchTournaments: () => Promise<readonly TournamentDto[]>;
+  readonly seedAllTournamentTeeGroups: () => Promise<{
+    readonly tournaments: number;
+    readonly groups: number;
+  }>;
+  readonly assignAllTournamentTeeGroupScorekeepers: (
+    tournamentId: string
+  ) => Promise<{ readonly assigned: number }>;
+}
+
+export const seedAllTournamentGroupsAndAssignAllScorekeepers = async (
+  deps: SeedAllTournamentGroupsAndAssignAllScorekeepersDependencies = {
+    fetchTournaments,
+    seedAllTournamentTeeGroups,
+    assignAllTournamentTeeGroupScorekeepers
+  }
+): Promise<readonly TournamentDto[]> => {
+  await deps.seedAllTournamentTeeGroups();
+  const tournaments = await deps.fetchTournaments();
+  const eligibleTournaments = tournaments.filter(
+    (tournament) => tournament.type === 'fli'
+  );
+  for (const tournament of eligibleTournaments) {
+    await deps.assignAllTournamentTeeGroupScorekeepers(tournament.id);
+  }
+  return eligibleTournaments;
+};
 export const fetchTournamentTeeGroupScorecard = (
   tournamentId: string,
   groupId: string
@@ -1202,12 +1256,6 @@ export const addHole = (input: {
   readonly number?: number;
   readonly par?: number;
 }) => postJson<HoleDto>('/league/holes', input);
-
-export const seedTurfParadiseLayout = (courseId: string) =>
-  postJson<{ readonly courseId: string; readonly created: number }>(
-    `/league/courses/${courseId}/turf-paradise-layout`,
-    {}
-  );
 
 export interface FantasySeedResult {
   readonly organizationId: string;

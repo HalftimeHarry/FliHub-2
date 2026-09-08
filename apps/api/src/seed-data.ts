@@ -455,7 +455,7 @@ export const createLeagueRepositories = () => ({
       name: 'Sunset Open',
       type: 'fli',
       scheduledOn: new Date('2026-06-02T22:00:00.000Z'),
-      courseId: 'course-4'
+      courseId: 'course-1'
     }),
     Tournament.create({
       id: 'summer-championship',
@@ -464,7 +464,7 @@ export const createLeagueRepositories = () => ({
       name: 'Summer Championship',
       type: 'fli',
       scheduledOn: new Date('2026-08-11T22:00:00.000Z'),
-      courseId: 'course-4'
+      courseId: 'course-2'
     }),
     Tournament.create({
       id: 'canyon-heat-cup',
@@ -473,7 +473,7 @@ export const createLeagueRepositories = () => ({
       name: 'Canyon Heat Cup',
       type: 'fli',
       scheduledOn: new Date('2027-06-16T22:00:00.000Z'),
-      courseId: 'course-4'
+      courseId: 'course-1'
     }),
     Tournament.create({
       id: 'summer-solstice-invitational',
@@ -482,7 +482,7 @@ export const createLeagueRepositories = () => ({
       name: 'Summer Solstice Invitational',
       type: 'fli',
       scheduledOn: new Date('2027-06-30T22:00:00.000Z'),
-      courseId: 'course-4'
+      courseId: 'course-2'
     }),
     Tournament.create({
       id: 'high-desert-classic',
@@ -491,7 +491,7 @@ export const createLeagueRepositories = () => ({
       name: 'High Desert Classic',
       type: 'fli',
       scheduledOn: new Date('2027-07-14T22:00:00.000Z'),
-      courseId: 'course-4'
+      courseId: 'course-1'
     }),
     Tournament.create({
       id: 'mesa-flight-showdown',
@@ -500,7 +500,7 @@ export const createLeagueRepositories = () => ({
       name: 'Mesa Flight Showdown',
       type: 'fli',
       scheduledOn: new Date('2027-07-28T22:00:00.000Z'),
-      courseId: 'course-4'
+      courseId: 'course-2'
     }),
     Tournament.create({
       id: 'course-community-cup',
@@ -509,7 +509,7 @@ export const createLeagueRepositories = () => ({
       name: 'Course Community Cup',
       type: 'multi-round',
       scheduledOn: new Date('2026-10-15T22:00:00.000Z'),
-      courseId: 'course-3'
+      courseId: 'course-1'
     })
   ]),
   courses: new InMemoryCourseRepository([
@@ -524,28 +524,11 @@ export const createLeagueRepositories = () => ({
       organizationId: 'fgl',
       name: 'Harbor Point',
       holeCount: 18
-    }),
-    Course.create({
-      id: 'course-4',
-      organizationId: 'fgl',
-      name: 'Turf Paradise',
-      holeCount: 9
-    }),
-    Course.create({
-      id: 'course-3',
-      organizationId: 'org-2',
-      name: 'Campus Greens',
-      holeCount: 9
     })
   ]),
   holes: new InMemoryHoleRepository(
-    [
-      { courseId: 'course-1', count: 18 },
-      { courseId: 'course-2', count: 18 },
-      { courseId: 'course-4', count: 9 },
-      { courseId: 'course-3', count: 9 }
-    ].flatMap(({ courseId, count }) =>
-      Array.from({ length: count }, (_, index) =>
+    ['course-1', 'course-2'].flatMap((courseId) =>
+      Array.from({ length: 18 }, (_, index) =>
         Hole.create({
           id: `${courseId}-hole-${(index + 1).toString()}`,
           courseId,

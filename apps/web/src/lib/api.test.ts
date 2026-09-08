@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   getUserCatalog,
   getOrganizationCatalog,
-  registerCustomOrganization
+  registerCustomOrganization,
+  seedTournamentGroupsAndAssignAllScorekeepers
 } from './api.js';
 
 const createStorage = () => {
@@ -63,5 +64,41 @@ describe('FLI Golf scorekeepers', () => {
       'scorekeeper-5',
       'scorekeeper-6'
     ]);
+  });
+});
+
+describe('tournament setup workflow', () => {
+  it('seeds groups before assigning all scorekeepers for a tournament', async () => {
+    const calls: string[] = [];
+
+    const groups = await seedTournamentGroupsAndAssignAllScorekeepers('tournament-1', {
+      seedTournamentTeeGroups: async (tournamentId: string) => {
+        calls.push(`seed:${tournamentId}`);
+      },
+      assignAllTournamentTeeGroupScorekeepers: async (tournamentId: string) => {
+        calls.push(`assign:${tournamentId}`);
+      },
+      fetchTournamentTeeGroups: async (tournamentId: string) => {
+        calls.push(`fetch:${tournamentId}`);
+        return [
+          {
+            id: 'group-1',
+            number: 1,
+            teeTime: '08:00',
+            teamNames: ['Team A'],
+            scorekeeperId: 'scorekeeper-1',
+            scorekeeperName: 'A. Scorekeeper'
+          }
+        ] as any;
+      }
+    });
+
+    expect(calls).toEqual([
+      'seed:tournament-1',
+      'assign:tournament-1',
+      'fetch:tournament-1'
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.id).toBe('group-1');
   });
 });
