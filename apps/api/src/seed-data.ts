@@ -1,10 +1,15 @@
 import { Organization } from '@flihub/core';
 import {
   FantasyLeague,
+  FantasyLeagueMembership,
   FantasyTeam,
+  FantasyTournament,
+  MAX_FANTASY_PARTICIPANTS,
   InMemoryDraftRoomRepository,
+  InMemoryFantasyLeagueMembershipRepository,
   InMemoryFantasyLeagueRepository,
-  InMemoryFantasyTeamRepository
+  InMemoryFantasyTeamRepository,
+  InMemoryFantasyTournamentRepository
 } from '@flihub/fantasy';
 import {
   Department,
@@ -516,24 +521,38 @@ export const createLeagueRepositories = () => ({
     Course.create({
       id: 'course-1',
       organizationId: 'fgl',
-      name: 'Maple Ridge',
-      holeCount: 18
+      name: 'Turf Paradise',
+      holeCount: 9
     }),
     Course.create({
       id: 'course-2',
       organizationId: 'fgl',
-      name: 'Harbor Point',
-      holeCount: 18
+      name: 'Arizona Athletic Grounds',
+      holeCount: 9
     })
   ]),
   holes: new InMemoryHoleRepository(
-    ['course-1', 'course-2'].flatMap((courseId) =>
-      Array.from({ length: 18 }, (_, index) =>
+    [
+      {
+        courseId: 'course-1',
+        name: 'Turf Paradise',
+        distances: [215, 245, 280, 260, 300, 340, 270, 320, 415, 220, 250, 290, 270, 310, 350, 280, 330, 420]
+      },
+      {
+        courseId: 'course-2',
+        name: 'Arizona Athletic Grounds',
+        distances: [225, 250, 285, 265, 305, 345, 275, 325, 410, 230, 255, 295, 275, 315, 355, 285, 335, 425]
+      }
+    ].flatMap(({ courseId, name, distances }) =>
+      distances.map((distanceFeet, index) =>
         Hole.create({
           id: `${courseId}-hole-${(index + 1).toString()}`,
           courseId,
           number: index + 1,
-          par: (index % 3) + 3
+          par: 3,
+          name: `${name} Hole ${index + 1}`,
+          distanceFeet,
+          blueBasket: index < 9
         })
       )
     )
@@ -591,7 +610,35 @@ export const createFantasyRepositories = () => ({
       id: 'fantasy-league-1',
       organizationId: 'fgl',
       name: 'FLI Golf Fantasy',
-      participantIds: ['simon-lizotte', 'kat-mertsch']
+      ownerUserId: 'simon-lizotte',
+      requiredApprovedParticipants: 2,
+      maxParticipants: MAX_FANTASY_PARTICIPANTS,
+      participantIds: ['simon-lizotte', 'kat-mertsch'],
+      status: 'open'
+    })
+  ]),
+  memberships: new InMemoryFantasyLeagueMembershipRepository([
+    FantasyLeagueMembership.create({
+      id: 'membership-1',
+      leagueId: 'fantasy-league-1',
+      userId: 'simon-lizotte',
+      role: 'owner',
+      state: 'approved',
+      requestedAt: '2026-01-01T00:00:00.000Z',
+      reviewedAt: '2026-01-01T00:00:00.000Z',
+      reviewedByUserId: 'simon-lizotte',
+      note: 'League owner'
+    }),
+    FantasyLeagueMembership.create({
+      id: 'membership-2',
+      leagueId: 'fantasy-league-1',
+      userId: 'kat-mertsch',
+      role: 'participant',
+      state: 'approved',
+      requestedAt: '2026-01-02T00:00:00.000Z',
+      reviewedAt: '2026-01-02T00:00:00.000Z',
+      reviewedByUserId: 'simon-lizotte',
+      note: 'Approved by owner'
     })
   ]),
   teams: new InMemoryFantasyTeamRepository([
@@ -601,6 +648,18 @@ export const createFantasyRepositories = () => ({
       ownerId: 'simon-lizotte',
       name: "Simon's Aces",
       playerIds: ['isaac-robinson', 'missy-gannon']
+    })
+  ]),
+  tournaments: new InMemoryFantasyTournamentRepository([
+    FantasyTournament.create({
+      id: 'fantasy-tournament-1',
+      leagueId: 'fantasy-league-1',
+      seasonId: 'summer-season',
+      tournamentNumber: 1,
+      name: 'Fantasy Round 1',
+      status: 'draft_pending',
+      participantIds: ['simon-lizotte', 'kat-mertsch'],
+      scheduledAt: '2026-06-02T22:00:00.000Z'
     })
   ]),
   drafts: new InMemoryDraftRoomRepository()

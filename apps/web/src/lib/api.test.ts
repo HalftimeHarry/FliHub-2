@@ -74,9 +74,11 @@ describe('tournament setup workflow', () => {
     const groups = await seedTournamentGroupsAndAssignAllScorekeepers('tournament-1', {
       seedTournamentTeeGroups: async (tournamentId: string) => {
         calls.push(`seed:${tournamentId}`);
+        return { tournamentId, created: 1 };
       },
       assignAllTournamentTeeGroupScorekeepers: async (tournamentId: string) => {
         calls.push(`assign:${tournamentId}`);
+        return { assigned: 1 };
       },
       fetchTournamentTeeGroups: async (tournamentId: string) => {
         calls.push(`fetch:${tournamentId}`);

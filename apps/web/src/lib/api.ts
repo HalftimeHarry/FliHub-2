@@ -21,6 +21,37 @@ export interface FantasyLeagueDto {
   readonly organizationId: string;
   readonly name: string;
   readonly participantIds: readonly string[];
+  readonly ownerUserId?: string;
+  readonly requiredApprovedParticipants?: number;
+  readonly maxParticipants?: number;
+  readonly status?: 'draft' | 'open';
+}
+
+export interface FantasyMembershipDto {
+  readonly id: string;
+  readonly leagueId: string;
+  readonly userId: string;
+  readonly role: 'owner' | 'participant';
+  readonly state: 'pending' | 'approved' | 'rejected' | 'left' | 'banned';
+  readonly requestedAt: string;
+  readonly reviewedAt?: string;
+  readonly reviewedByUserId?: string;
+  readonly note?: string;
+}
+
+export interface FantasyTournamentDto {
+  readonly id: string;
+  readonly leagueId: string;
+  readonly seasonId: string;
+  readonly tournamentNumber: number;
+  readonly name: string;
+  readonly status: 'draft_pending' | 'scheduled' | 'in_progress' | 'completed';
+  readonly participantIds: readonly string[];
+  readonly draftRoomId?: string;
+  readonly scheduledAt?: string;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly realTournamentId?: string;
 }
 
 export interface FantasyTeamDto {
@@ -140,8 +171,7 @@ export interface HoleDto {
   readonly name?: string;
   readonly description?: string;
   readonly distanceFeet?: number;
-  readonly blueBasketPosition?: string;
-  readonly redBasketPosition?: string;
+  readonly blueBasket: boolean;
 }
 
 export interface TournamentRegistrationDto {
@@ -777,20 +807,53 @@ const demoData: Record<string, unknown> = {
     {
       id: 'course-1',
       organizationId: 'fgl',
-      name: 'Maple Ridge',
-      holeCount: 18
+      name: 'Turf Paradise',
+      holeCount: 9
     },
     {
       id: 'course-2',
       organizationId: 'fgl',
-      name: 'Harbor Point',
-      holeCount: 18
+      name: 'Arizona Athletic Grounds',
+      holeCount: 9
     }
   ] satisfies readonly CourseDto[],
   '/league/holes': [
-    { id: 'course-1-hole-1', courseId: 'course-1', number: 1, par: 3 },
-    { id: 'course-1-hole-2', courseId: 'course-1', number: 2, par: 4 },
-    { id: 'course-1-hole-3', courseId: 'course-1', number: 3, par: 5 }
+    { id: 'course-1-hole-1', courseId: 'course-1', number: 1, par: 3, name: 'Turf Paradise Hole 1', distanceFeet: 215, blueBasket: true },
+    { id: 'course-1-hole-2', courseId: 'course-1', number: 2, par: 3, name: 'Turf Paradise Hole 2', distanceFeet: 245, blueBasket: true },
+    { id: 'course-1-hole-3', courseId: 'course-1', number: 3, par: 3, name: 'Turf Paradise Hole 3', distanceFeet: 280, blueBasket: true },
+    { id: 'course-1-hole-4', courseId: 'course-1', number: 4, par: 3, name: 'Turf Paradise Hole 4', distanceFeet: 260, blueBasket: true },
+    { id: 'course-1-hole-5', courseId: 'course-1', number: 5, par: 3, name: 'Turf Paradise Hole 5', distanceFeet: 300, blueBasket: true },
+    { id: 'course-1-hole-6', courseId: 'course-1', number: 6, par: 3, name: 'Turf Paradise Hole 6', distanceFeet: 340, blueBasket: true },
+    { id: 'course-1-hole-7', courseId: 'course-1', number: 7, par: 3, name: 'Turf Paradise Hole 7', distanceFeet: 270, blueBasket: true },
+    { id: 'course-1-hole-8', courseId: 'course-1', number: 8, par: 3, name: 'Turf Paradise Hole 8', distanceFeet: 320, blueBasket: true },
+    { id: 'course-1-hole-9', courseId: 'course-1', number: 9, par: 3, name: 'Turf Paradise Hole 9', distanceFeet: 415, blueBasket: true },
+    { id: 'course-1-hole-10', courseId: 'course-1', number: 10, par: 3, name: 'Turf Paradise Hole 10', distanceFeet: 220, blueBasket: false },
+    { id: 'course-1-hole-11', courseId: 'course-1', number: 11, par: 3, name: 'Turf Paradise Hole 11', distanceFeet: 250, blueBasket: false },
+    { id: 'course-1-hole-12', courseId: 'course-1', number: 12, par: 3, name: 'Turf Paradise Hole 12', distanceFeet: 290, blueBasket: false },
+    { id: 'course-1-hole-13', courseId: 'course-1', number: 13, par: 3, name: 'Turf Paradise Hole 13', distanceFeet: 270, blueBasket: false },
+    { id: 'course-1-hole-14', courseId: 'course-1', number: 14, par: 3, name: 'Turf Paradise Hole 14', distanceFeet: 310, blueBasket: false },
+    { id: 'course-1-hole-15', courseId: 'course-1', number: 15, par: 3, name: 'Turf Paradise Hole 15', distanceFeet: 350, blueBasket: false },
+    { id: 'course-1-hole-16', courseId: 'course-1', number: 16, par: 3, name: 'Turf Paradise Hole 16', distanceFeet: 280, blueBasket: false },
+    { id: 'course-1-hole-17', courseId: 'course-1', number: 17, par: 3, name: 'Turf Paradise Hole 17', distanceFeet: 330, blueBasket: false },
+    { id: 'course-1-hole-18', courseId: 'course-1', number: 18, par: 3, name: 'Turf Paradise Hole 18', distanceFeet: 420, blueBasket: false },
+    { id: 'course-2-hole-1', courseId: 'course-2', number: 1, par: 3, name: 'Arizona Athletic Grounds Hole 1', distanceFeet: 225, blueBasket: true },
+    { id: 'course-2-hole-2', courseId: 'course-2', number: 2, par: 3, name: 'Arizona Athletic Grounds Hole 2', distanceFeet: 250, blueBasket: true },
+    { id: 'course-2-hole-3', courseId: 'course-2', number: 3, par: 3, name: 'Arizona Athletic Grounds Hole 3', distanceFeet: 285, blueBasket: true },
+    { id: 'course-2-hole-4', courseId: 'course-2', number: 4, par: 3, name: 'Arizona Athletic Grounds Hole 4', distanceFeet: 265, blueBasket: true },
+    { id: 'course-2-hole-5', courseId: 'course-2', number: 5, par: 3, name: 'Arizona Athletic Grounds Hole 5', distanceFeet: 305, blueBasket: true },
+    { id: 'course-2-hole-6', courseId: 'course-2', number: 6, par: 3, name: 'Arizona Athletic Grounds Hole 6', distanceFeet: 345, blueBasket: true },
+    { id: 'course-2-hole-7', courseId: 'course-2', number: 7, par: 3, name: 'Arizona Athletic Grounds Hole 7', distanceFeet: 275, blueBasket: true },
+    { id: 'course-2-hole-8', courseId: 'course-2', number: 8, par: 3, name: 'Arizona Athletic Grounds Hole 8', distanceFeet: 325, blueBasket: true },
+    { id: 'course-2-hole-9', courseId: 'course-2', number: 9, par: 3, name: 'Arizona Athletic Grounds Hole 9', distanceFeet: 410, blueBasket: true },
+    { id: 'course-2-hole-10', courseId: 'course-2', number: 10, par: 3, name: 'Arizona Athletic Grounds Hole 10', distanceFeet: 230, blueBasket: false },
+    { id: 'course-2-hole-11', courseId: 'course-2', number: 11, par: 3, name: 'Arizona Athletic Grounds Hole 11', distanceFeet: 255, blueBasket: false },
+    { id: 'course-2-hole-12', courseId: 'course-2', number: 12, par: 3, name: 'Arizona Athletic Grounds Hole 12', distanceFeet: 295, blueBasket: false },
+    { id: 'course-2-hole-13', courseId: 'course-2', number: 13, par: 3, name: 'Arizona Athletic Grounds Hole 13', distanceFeet: 275, blueBasket: false },
+    { id: 'course-2-hole-14', courseId: 'course-2', number: 14, par: 3, name: 'Arizona Athletic Grounds Hole 14', distanceFeet: 315, blueBasket: false },
+    { id: 'course-2-hole-15', courseId: 'course-2', number: 15, par: 3, name: 'Arizona Athletic Grounds Hole 15', distanceFeet: 355, blueBasket: false },
+    { id: 'course-2-hole-16', courseId: 'course-2', number: 16, par: 3, name: 'Arizona Athletic Grounds Hole 16', distanceFeet: 285, blueBasket: false },
+    { id: 'course-2-hole-17', courseId: 'course-2', number: 17, par: 3, name: 'Arizona Athletic Grounds Hole 17', distanceFeet: 335, blueBasket: false },
+    { id: 'course-2-hole-18', courseId: 'course-2', number: 18, par: 3, name: 'Arizona Athletic Grounds Hole 18', distanceFeet: 425, blueBasket: false }
   ] satisfies readonly HoleDto[],
   '/league/tournament-registrations':
     [] satisfies readonly TournamentRegistrationDto[],
@@ -1036,6 +1099,10 @@ export const fetchHoles = () => getJson<readonly HoleDto[]>('/league/holes');
 export const fetchTeams = () => getJson<readonly TeamDto[]>('/league/teams');
 export const fetchFantasyLeagues = () =>
   getJson<readonly FantasyLeagueDto[]>('/fantasy/leagues');
+export const fetchFantasyMemberships = () =>
+  getJson<readonly FantasyMembershipDto[]>('/fantasy/memberships');
+export const fetchFantasyTournaments = () =>
+  getJson<readonly FantasyTournamentDto[]>('/fantasy/tournaments');
 export const fetchFantasyTeams = () =>
   getJson<readonly FantasyTeamDto[]>('/fantasy/teams');
 export const fetchDrafts = () =>
@@ -1244,6 +1311,56 @@ export const addFantasyLeague = (input: {
   readonly participantIds?: readonly string[];
 }) => postJson<FantasyLeagueDto>('/fantasy/leagues', input);
 
+export const requestFantasyLeagueMembership = (input: {
+  readonly leagueId: string;
+  readonly userId?: string;
+  readonly role?: 'participant' | 'owner';
+}) =>
+  postJson<FantasyMembershipDto>(
+    `/fantasy/leagues/${input.leagueId}/memberships/request`,
+    {
+      userId: input.userId,
+      role: input.role ?? 'participant'
+    }
+  );
+
+export const approveFantasyLeagueMembership = (input: {
+  readonly leagueId: string;
+  readonly membershipId: string;
+}) =>
+  putJson<{
+    readonly membership: FantasyMembershipDto;
+    readonly league: {
+      readonly id: string;
+      readonly organizationId: string;
+      readonly name: string;
+      readonly ownerUserId: string;
+      readonly participantIds: readonly string[];
+      readonly requiredApprovedParticipants: number;
+      readonly maxParticipants: number;
+      readonly status: 'draft' | 'open';
+    };
+  }>(`/fantasy/leagues/${input.leagueId}/memberships/${input.membershipId}/approve`, {});
+
+export const createFantasyTournament = (
+  leagueId: string,
+  input: {
+    readonly seasonId?: string;
+    readonly name?: string;
+    readonly tournamentNumber?: number;
+    readonly scheduledAt?: string;
+  }
+) => postJson<FantasyTournamentDto>(`/fantasy/leagues/${leagueId}/tournaments`, input);
+
+export const seedFantasyLeague = (input: {
+  readonly name?: string;
+  readonly ownerUserId?: string;
+  readonly participantUserIds?: readonly string[];
+  readonly seasonId?: string;
+  readonly tournamentCount?: number;
+  readonly timerSeconds?: number;
+}) => postJson<{ readonly league: FantasyLeagueDto; readonly memberships: readonly FantasyMembershipDto[]; readonly tournaments: readonly FantasyTournamentDto[]; readonly draft: DraftRoomDto }>('/fantasy/seed-league', input);
+
 export const addFantasyTeam = (input: {
   readonly fantasyLeagueId: string;
   readonly ownerId: string;
@@ -1255,6 +1372,7 @@ export const addHole = (input: {
   readonly courseId: string;
   readonly number?: number;
   readonly par?: number;
+  readonly blueBasket?: boolean;
 }) => postJson<HoleDto>('/league/holes', input);
 
 export interface FantasySeedResult {

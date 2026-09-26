@@ -17,7 +17,9 @@ import {
 import {
   DraftRoom,
   FantasyLeague,
+  FantasyLeagueMembership,
   FantasyTeam,
+  FantasyTournament,
   MAX_FANTASY_PARTICIPANTS,
   MAX_FANTASY_ROSTER_SIZE
 } from '@flihub/fantasy';
@@ -339,11 +341,16 @@ app.post(
       res.status(400).json({ code: 'league.season.fields_required', message: 'League, name, dates, and yearly purse are required.' });
       return;
     }
+    const leagueId = body.leagueId;
+    const seasonName = body.name;
+    const startsOn = new Date(body.startsOn);
+    const endsOn = new Date(body.endsOn);
+
     void Promise.all([
       leagueRepositories.leagues.list(),
       leagueRepositories.seasons.list()
     ]).then(async ([leagues, seasons]) => {
-      const league = leagues.find((entry) => entry.id.value === body.leagueId);
+      const league = leagues.find((entry) => entry.id.value === leagueId);
       if (league?.organizationId.value !== req.organizationId) {
         res.status(400).json({ code: 'league.season.league_not_found', message: 'The selected league does not belong to this organization.' });
         return;
@@ -352,9 +359,9 @@ app.post(
         const season = Season.create({
           id: `season-${(seasons.length + 1).toString()}`,
           leagueId: league.id.value,
-          name: body.name,
-          startsOn: new Date(body.startsOn),
-          endsOn: new Date(body.endsOn),
+          name: seasonName,
+          startsOn,
+          endsOn,
           yearlyPurseMinorUnits: body.yearlyPurseMinorUnits,
           yearlyPurseCurrency: body.yearlyPurseCurrency,
           status: body.status
@@ -394,6 +401,10 @@ app.put(
       return;
     }
 
+    const seasonName = body.name;
+    const startsOn = new Date(body.startsOn);
+    const endsOn = new Date(body.endsOn);
+
     void Promise.all([
       leagueRepositories.seasons.list(),
       leagueRepositories.leagues.list()
@@ -401,10 +412,17 @@ app.put(
       const existing = seasons.find(
         (season) => season.id.value === req.params.id
       );
+      if (existing === undefined) {
+        res.status(404).json({
+          code: 'league.season.not_found',
+          message: 'Season could not be resolved for this organization.'
+        });
+        return;
+      }
       const league = leagues.find((entry) =>
-        entry.id.equals(existing?.leagueId)
+        entry.id.equals(existing.leagueId)
       );
-      if (existing === undefined || league?.organizationId.value !== req.organizationId) {
+      if (league?.organizationId.value !== req.organizationId) {
         res.status(404).json({
           code: 'league.season.not_found',
           message: 'Season could not be resolved for this organization.'
@@ -416,9 +434,9 @@ app.put(
         const season = Season.create({
           id: existing.id.value,
           leagueId: existing.leagueId.value,
-          name: body.name,
-          startsOn: new Date(body.startsOn),
-          endsOn: new Date(body.endsOn),
+          name: seasonName,
+          startsOn,
+          endsOn,
           yearlyPurseMinorUnits: body.yearlyPurseMinorUnits,
           yearlyPurseCurrency: body.yearlyPurseCurrency,
           status: body.status
@@ -455,8 +473,12 @@ app.delete(
       leagueRepositories.tournaments.list()
     ]).then(async ([seasons, leagues, tournaments]) => {
       const season = seasons.find((entry) => entry.id.value === req.params.id);
-      const league = leagues.find((entry) => entry.id.equals(season?.leagueId));
-      if (season === undefined || league?.organizationId.value !== req.organizationId) {
+      if (season === undefined) {
+        res.status(404).json({ code: 'league.season.not_found', message: 'Season could not be resolved for this organization.' });
+        return;
+      }
+      const league = leagues.find((entry) => entry.id.equals(season.leagueId));
+      if (league?.organizationId.value !== req.organizationId) {
         res.status(404).json({ code: 'league.season.not_found', message: 'Season could not be resolved for this organization.' });
         return;
       }
@@ -603,9 +625,9 @@ app.get('/league/tournaments', (req: OrganizationRequest, res) => {
           scoringHoleCount:
             tournament.type === 'fli'
               ? 18
-              : courses.find((course) =>
-                    course.id.equals(tournament.courseId)
-                  )?.holeCount,
+              : tournament.courseId === undefined
+                ? undefined
+                : courses.find((course) => course.id.equals(tournament.courseId as any))?.holeCount,
           status: tournament.status,
           courseId: tournament.courseId?.value
         }))
@@ -650,8 +672,7 @@ app.get('/league/holes', (req: OrganizationRequest, res) => {
           name: hole.name,
           description: hole.description,
           distanceFeet: hole.distanceFeet,
-          blueBasketPosition: hole.blueBasketPosition,
-          redBasketPosition: hole.redBasketPosition
+          blueBasket: hole.blueBasket
         }))
     );
   });
@@ -903,14 +924,19 @@ app.get(
         res.status(404).json({ message: 'Tee group could not be resolved for this organization.' });
         return;
       }
+      if (tournament.courseId === undefined) {
+        res.status(400).json({ message: 'Tournament does not have a course assigned.' });
+        return;
+      }
       const groupTeams = group.teamIds
         .map((teamId) => teams.find((team) => team.id.equals(teamId)))
         .filter((team): team is Team => team !== undefined);
+      const courseId = tournament.courseId;
       const courseHoles = holes
-        .filter((hole) => hole.courseId.equals(tournament.courseId))
+        .filter((hole) => hole.courseId.equals(courseId))
         .sort((left, right) => left.number - right.number);
       const holeCount = tournament.type === 'fli' ? 18 : courseHoles.length;
-      const course = courses.find((entry) => entry.id.equals(tournament.courseId));
+      const course = courses.find((entry) => entry.id.equals(courseId));
       const scoreEntries = teeGroupScores.get(group.id.value) ?? new Map();
       res.json({
         groupId: group.id.value,
@@ -961,6 +987,10 @@ app.put(
         res.status(404).json({ message: 'Tee group could not be resolved for this organization.' });
         return;
       }
+      if (tournament.courseId === undefined) {
+        res.status(400).json({ message: 'Tournament does not have a course assigned.' });
+        return;
+      }
       if (
         req.userId !== group.scorekeeperId?.value &&
         req.userRole !== 'admin' &&
@@ -969,9 +999,10 @@ app.put(
         res.status(403).json({ message: 'Only the assigned scorekeeper can record this group.' });
         return;
       }
+      const courseId = tournament.courseId;
       const holeCount = tournament.type === 'fli'
         ? 18
-        : holes.filter((hole) => hole.courseId.equals(tournament.courseId)).length;
+        : holes.filter((hole) => hole.courseId.equals(courseId)).length;
       const playerIds = new Set(
         group.teamIds.flatMap((teamId) => {
           const team = teams.find((entry) => entry.id.equals(teamId));
@@ -1086,13 +1117,17 @@ app.post(
       leagueRepositories.courses.list()
     ]).then(([tournaments, seasons, leagues, courses]) => {
       const season = seasons.find((entry) => entry.id.value === body.seasonId);
+      if (season === undefined) {
+        res.status(400).json({
+          code: 'league.tournament.season_not_found',
+          message: 'The selected season does not belong to this organization.'
+        });
+        return;
+      }
       const seasonLeague = leagues.find((league) =>
-        league.id.equals(season?.leagueId)
+        league.id.equals(season.leagueId)
       );
-      if (
-        season === undefined ||
-        seasonLeague?.organizationId.value !== req.organizationId
-      ) {
+      if (seasonLeague?.organizationId.value !== req.organizationId) {
         res.status(400).json({
           code: 'league.tournament.season_not_found',
           message: 'The selected season does not belong to this organization.'
@@ -1234,10 +1269,16 @@ app.post(
       leagueRepositories.courses.list()
     ]).then(async ([tournaments, seasons, leagues, courses]) => {
       const season = seasons.find((entry) => entry.id.value === body.seasonId);
-      const league = leagues.find((entry) => entry.id.equals(season?.leagueId));
+      if (season === undefined) {
+        res.status(400).json({
+          code: 'league.tournament.reference_not_found',
+          message: 'The selected season or course does not belong to this organization.'
+        });
+        return;
+      }
+      const league = leagues.find((entry) => entry.id.equals(season.leagueId));
       const course = courses.find((entry) => entry.id.value === body.courseId);
       if (
-        season === undefined ||
         league?.organizationId.value !== req.organizationId ||
         course?.organizationId.value !== req.organizationId
       ) {
@@ -1328,6 +1369,7 @@ app.put(
       res.status(400).json({ code: 'league.tournament.fields_required', message: 'Name, season, course, and type are required.' });
       return;
     }
+    const tournamentName = body.name;
     void Promise.all([
       leagueRepositories.tournaments.list(),
       leagueRepositories.seasons.list(),
@@ -1335,13 +1377,19 @@ app.put(
       leagueRepositories.courses.list()
     ]).then(async ([tournaments, seasons, leagues, courses]) => {
       const existing = tournaments.find((entry) => entry.id.value === req.params.id);
+      if (existing === undefined) {
+        res.status(404).json({ code: 'league.tournament.not_found', message: 'Tournament could not be resolved for this organization.' });
+        return;
+      }
       const season = seasons.find((entry) => entry.id.value === body.seasonId);
-      const seasonLeague = leagues.find((entry) => entry.id.equals(season?.leagueId));
+      const seasonLeague = season === undefined ? undefined : leagues.find((entry) => entry.id.equals(season.leagueId));
       const course = courses.find((entry) => entry.id.value === body.courseId);
       if (
-        existing?.organizationId.value !== req.organizationId ||
+        existing.organizationId.value !== req.organizationId ||
         seasonLeague?.organizationId.value !== req.organizationId ||
-        course?.organizationId.value !== req.organizationId
+        course?.organizationId.value !== req.organizationId ||
+        season === undefined ||
+        course === undefined
       ) {
         res.status(404).json({ code: 'league.tournament.not_found', message: 'Tournament references could not be resolved for this organization.' });
         return;
@@ -1355,7 +1403,7 @@ app.put(
           id: existing.id.value,
           organizationId: existing.organizationId.value,
           seasonId: season.id.value,
-          name: body.name,
+          name: tournamentName,
           type: body.type,
           scheduledOn: body.scheduledOn === undefined ? undefined : new Date(body.scheduledOn),
           status: body.status,
@@ -1438,6 +1486,8 @@ app.put(
       });
       return;
     }
+    const courseName = body.name;
+    const holeCount = body.holeCount;
     const courseId = Identifier.create(req.params.id, 'course id');
     void Promise.all([
       leagueRepositories.courses.findById(courseId),
@@ -1453,7 +1503,7 @@ app.put(
       if (
         holes.some(
           (hole) =>
-            hole.courseId.equals(existing.id) && hole.number > body.holeCount
+            hole.courseId.equals(existing.id) && hole.number > holeCount
         )
       ) {
         res.status(400).json({
@@ -1466,8 +1516,8 @@ app.put(
         const course = Course.create({
           id: existing.id.value,
           organizationId: existing.organizationId.value,
-          name: body.name,
-          holeCount: body.holeCount
+          name: courseName,
+          holeCount
         });
         await leagueRepositories.courses.save(course);
         res.json({
@@ -1527,6 +1577,7 @@ app.post(
       courseId?: string;
       number?: number;
       par?: number;
+      blueBasket?: boolean;
     };
 
     if (body.courseId === undefined) {
@@ -1545,7 +1596,8 @@ app.post(
         id: `${courseId}-hole-${number.toString()}`,
         courseId,
         number,
-        par: body.par ?? 3
+        par: body.par ?? 3,
+        blueBasket: body.blueBasket ?? number <= 9
       });
 
       void leagueRepositories.holes.save(hole).then(() => {
@@ -1553,18 +1605,20 @@ app.post(
           id: hole.id.value,
           courseId: hole.courseId.value,
           number: hole.number,
-          par: hole.par
+          par: hole.par,
+          blueBasket: hole.blueBasket
         });
       });
     });
   }
 );
 
-app.get('/fantasy/leagues', (req: OrganizationRequest, res) => {
+app.get('/fantasy/leagues', (req: Request, res: Response) => {
+  const organizationRequest = req as OrganizationRequest;
   void fantasyRepositories.leagues.list().then((leagues) => {
     res.json(
       leagues
-        .filter((league) => league.organizationId.value === req.organizationId)
+        .filter((league) => league.organizationId.value === organizationRequest.organizationId)
         .map((league) => ({
           id: league.id.value,
           organizationId: league.organizationId.value,
@@ -1578,10 +1632,18 @@ app.get('/fantasy/leagues', (req: OrganizationRequest, res) => {
 app.post(
   '/fantasy/leagues',
   requirePermission('fantasy', 'write'),
-  (req: OrganizationRequest, res) => {
-    const body = req.body as { name?: string; participantIds?: string[] };
+  (req: Request, res: Response) => {
+    const organizationRequest = req as OrganizationRequest;
+    const body = req.body as {
+      name?: string;
+      ownerUserId?: string;
+      requiredApprovedParticipants?: number;
+      maxParticipants?: number;
+      participantIds?: string[];
+      seasonId?: string;
+    };
 
-    void fantasyRepositories.leagues.list().then((leagues) => {
+    void fantasyRepositories.leagues.list().then(async (leagues) => {
       const existingIds = new Set(leagues.map((league) => league.id.value));
       let index = leagues.length + 1;
       let id = `fantasy-league-${index.toString()}`;
@@ -1590,35 +1652,465 @@ app.post(
         id = `fantasy-league-${index.toString()}`;
       }
 
+      const ownerUserId = body.ownerUserId ?? organizationRequest.userId;
       const league = FantasyLeague.create({
         id,
-        organizationId: req.organizationId,
-        name: body.name ?? '',
-        participantIds: body.participantIds ?? []
+        organizationId: organizationRequest.organizationId,
+        name: body.name ?? `Fantasy League ${id}`,
+        ownerUserId,
+        requiredApprovedParticipants: body.requiredApprovedParticipants ?? 5,
+        maxParticipants: body.maxParticipants ?? MAX_FANTASY_PARTICIPANTS,
+        participantIds: body.participantIds ?? [ownerUserId],
+        seasonId: body.seasonId,
+        status: 'draft'
       });
 
-      void fantasyRepositories.leagues.save(league).then(() => {
-        res.status(201).json({
-          id: league.id.value,
-          organizationId: league.organizationId.value,
-          name: league.name,
-          participantIds: league.participantIds.map(
-            (participantId) => participantId.value
-          )
-        });
+      await fantasyRepositories.leagues.save(league);
+
+      const ownerMembership = FantasyLeagueMembership.create({
+        id: `league-member-${id}-owner`,
+        leagueId: league.id.value,
+        userId: ownerUserId,
+        role: 'owner',
+        state: 'approved',
+        requestedAt: new Date(),
+        reviewedAt: new Date(),
+        reviewedByUserId: ownerUserId,
+        note: 'League owner'
+      });
+
+      await fantasyRepositories.memberships.save(ownerMembership);
+
+      res.status(201).json({
+        id: league.id.value,
+        organizationId: league.organizationId.value,
+        name: league.name,
+        ownerUserId: league.ownerUserId.value,
+        requiredApprovedParticipants: league.requiredApprovedParticipants,
+        maxParticipants: league.maxParticipants,
+        participantIds: league.participantIds.map((participantId) => participantId.value),
+        seasonId: league.seasonId?.value,
+        status: league.status
       });
     });
   }
 );
 
-app.get('/fantasy/teams', (req: OrganizationRequest, res) => {
+app.post(
+  '/fantasy/leagues/:id/memberships/request',
+  requirePermission('fantasy', 'write'),
+  (req: Request, res: Response) => {
+    const organizationRequest = req as OrganizationRequest;
+    const body = req.body as { userId?: string; role?: 'participant' | 'owner' };
+    const userId = body.userId ?? organizationRequest.userId;
+
+    void Promise.all([
+      fantasyRepositories.leagues.list(),
+      fantasyRepositories.memberships.list()
+    ]).then(async ([leagues, memberships]) => {
+      const league = leagues.find(
+        (entry) =>
+          entry.id.value === req.params.id &&
+          entry.organizationId.value === organizationRequest.organizationId
+      );
+
+      if (league === undefined) {
+        res.status(404).json({
+          code: 'fantasy.league.not_found',
+          message: 'The league could not be resolved.'
+        });
+        return;
+      }
+
+      const existing = memberships.find(
+        (membership) =>
+          membership.leagueId.value === league.id.value && membership.userId.value === userId
+      );
+
+      if (existing !== undefined) {
+        res.status(400).json({
+          code: 'fantasy.membership.exists',
+          message: 'This member already has a membership record for the league.'
+        });
+        return;
+      }
+
+      const membership = FantasyLeagueMembership.create({
+        id: `league-member-${league.id.value}-${userId}`,
+        leagueId: league.id.value,
+        userId,
+        role: body.role ?? 'participant',
+        state: 'pending',
+        requestedAt: new Date()
+      });
+
+      await fantasyRepositories.memberships.save(membership);
+      res.status(201).json(serializeFantasyMembership(membership));
+    });
+  }
+);
+
+app.put(
+  '/fantasy/leagues/:id/memberships/:membershipId/approve',
+  requirePermission('fantasy', 'write'),
+  (req: Request, res: Response) => {
+    const organizationRequest = req as OrganizationRequest;
+    void Promise.all([
+      fantasyRepositories.leagues.list(),
+      fantasyRepositories.memberships.list()
+    ]).then(async ([leagues, memberships]) => {
+      const league = leagues.find(
+        (entry) =>
+          entry.id.value === req.params.id &&
+          entry.organizationId.value === organizationRequest.organizationId
+      );
+
+      if (league === undefined) {
+        res.status(404).json({
+          code: 'fantasy.league.not_found',
+          message: 'The league could not be resolved.'
+        });
+        return;
+      }
+
+      if (league.ownerUserId.value !== organizationRequest.userId) {
+        res.status(403).json({
+          code: 'fantasy.league.owner_required',
+          message: 'Only the league owner can approve participants.'
+        });
+        return;
+      }
+
+      const membership = memberships.find(
+        (entry) =>
+          entry.id.value === req.params.membershipId && entry.leagueId.value === league.id.value
+      );
+
+      if (membership === undefined) {
+        res.status(404).json({
+          code: 'fantasy.membership.not_found',
+          message: 'The membership could not be resolved.'
+        });
+        return;
+      }
+
+      const approved = membership.approve(organizationRequest.userId);
+      await fantasyRepositories.memberships.save(approved);
+
+      const nextParticipantIds = new Set(league.participantIds.map((id) => id.value));
+      nextParticipantIds.add(approved.userId.value);
+      const updatedLeague = FantasyLeague.create({
+        id: league.id.value,
+        organizationId: league.organizationId.value,
+        name: league.name,
+        ownerUserId: league.ownerUserId.value,
+        requiredApprovedParticipants: league.requiredApprovedParticipants,
+        maxParticipants: league.maxParticipants,
+        participantIds: Array.from(nextParticipantIds),
+        seasonId: league.seasonId?.value,
+        activeTournamentId: league.activeTournamentId?.value,
+        status: league.isReadyForTournament() ? 'open' : 'draft'
+      });
+
+      await fantasyRepositories.leagues.save(updatedLeague);
+      res.json({
+        membership: serializeFantasyMembership(approved),
+        league: {
+          id: updatedLeague.id.value,
+          organizationId: updatedLeague.organizationId.value,
+          name: updatedLeague.name,
+          ownerUserId: updatedLeague.ownerUserId.value,
+          participantIds: updatedLeague.participantIds.map((id) => id.value),
+          requiredApprovedParticipants: updatedLeague.requiredApprovedParticipants,
+          maxParticipants: updatedLeague.maxParticipants,
+          status: updatedLeague.status
+        }
+      });
+    });
+  }
+);
+
+app.post(
+  '/fantasy/leagues/:id/tournaments',
+  requirePermission('fantasy', 'write'),
+  (req: Request, res: Response) => {
+    const organizationRequest = req as OrganizationRequest;
+    const body = req.body as {
+      seasonId?: string;
+      name?: string;
+      tournamentNumber?: number;
+      scheduledAt?: string;
+    };
+
+    void Promise.all([
+      fantasyRepositories.leagues.list(),
+      fantasyRepositories.memberships.list(),
+      fantasyRepositories.tournaments.list()
+    ]).then(async ([leagues, memberships, tournaments]) => {
+      const league = leagues.find(
+        (entry) =>
+          entry.id.value === req.params.id &&
+          entry.organizationId.value === organizationRequest.organizationId
+      );
+
+      if (league === undefined) {
+        res.status(404).json({
+          code: 'fantasy.league.not_found',
+          message: 'The league could not be resolved.'
+        });
+        return;
+      }
+
+      const approvedMembers = memberships
+        .filter(
+          (membership) =>
+            membership.leagueId.value === league.id.value && membership.state === 'approved'
+        )
+        .map((membership) => membership.userId.value);
+
+      if (approvedMembers.length < league.requiredApprovedParticipants) {
+        res.status(400).json({
+          code: 'fantasy.league.not_ready',
+          message: 'The league does not have enough approved participants to create a tournament.'
+        });
+        return;
+      }
+
+      const nextTournamentNumber =
+        tournaments.filter((t) => t.leagueId.value === league.id.value).length + 1;
+
+      const tournament = FantasyTournament.create({
+        id: `fantasy-tournament-${Date.now().toString(36)}`,
+        leagueId: league.id.value,
+        seasonId: body.seasonId ?? league.seasonId?.value ?? 'season-1',
+        tournamentNumber: body.tournamentNumber ?? nextTournamentNumber,
+        name: body.name ?? `Fantasy Round ${nextTournamentNumber.toString()}`,
+        status: 'draft_pending',
+        participantIds: approvedMembers,
+        scheduledAt: body.scheduledAt ?? new Date()
+      });
+
+      await fantasyRepositories.tournaments.save(tournament);
+      res.status(201).json(serializeFantasyTournament(tournament));
+    });
+  }
+);
+
+app.post(
+  '/fantasy/seed-league',
+  requirePermission('fantasy', 'write'),
+  (req: Request, res: Response) => {
+    const organizationRequest = req as OrganizationRequest;
+    const body = req.body as {
+      name?: string;
+      ownerUserId?: string;
+      participantUserIds?: string[];
+      seasonId?: string;
+      tournamentCount?: number;
+      timerSeconds?: number;
+    };
+
+    void Promise.all([
+      fantasyRepositories.leagues.list(),
+      fantasyRepositories.memberships.list(),
+      fantasyRepositories.tournaments.list(),
+      fantasyRepositories.drafts.list(),
+      leagueRepositories.players.list()
+    ]).then(async ([leagues, memberships, tournaments, drafts, players]) => {
+      const orgPlayers = players.filter(
+        (player) =>
+          player.organizationId.value === organizationRequest.organizationId && player.active
+      );
+      const approvedUserIds = (body.participantUserIds ?? orgPlayers.map((player) => player.id.value)).filter(
+        (userId, index, list) => list.indexOf(userId) === index
+      );
+      const ownerUserId = body.ownerUserId ?? approvedUserIds[0] ?? organizationRequest.userId;
+      const safeParticipants = Array.from(new Set([ownerUserId, ...approvedUserIds.filter((id) => id !== ownerUserId)]));
+
+      const existingIds = new Set(leagues.map((league) => league.id.value));
+      let leagueIndex = leagues.length + 1;
+      let id = `fantasy-league-${leagueIndex.toString()}`;
+      while (existingIds.has(id)) {
+        leagueIndex += 1;
+        id = `fantasy-league-${leagueIndex.toString()}`;
+      }
+
+      const league = FantasyLeague.create({
+        id,
+        organizationId: organizationRequest.organizationId,
+        name: body.name ?? `Fantasy League ${id}`,
+        ownerUserId,
+        requiredApprovedParticipants: Math.min(5, Math.max(2, safeParticipants.length)),
+        maxParticipants: MAX_FANTASY_PARTICIPANTS,
+        participantIds: safeParticipants,
+        seasonId: body.seasonId ?? 'summer-season',
+        status: 'open'
+      });
+
+      await fantasyRepositories.leagues.save(league);
+
+      const ownerMembership = FantasyLeagueMembership.create({
+        id: `league-member-${id}-owner`,
+        leagueId: id,
+        userId: ownerUserId,
+        role: 'owner',
+        state: 'approved',
+        requestedAt: new Date(),
+        reviewedAt: new Date(),
+        reviewedByUserId: ownerUserId,
+        note: 'League owner'
+      });
+      await fantasyRepositories.memberships.save(ownerMembership);
+
+      for (const userId of safeParticipants.filter((participantId) => participantId !== ownerUserId)) {
+        const membership = FantasyLeagueMembership.create({
+          id: `league-member-${id}-${userId}`,
+          leagueId: id,
+          userId,
+          role: 'participant',
+          state: 'approved',
+          requestedAt: new Date(),
+          reviewedAt: new Date(),
+          reviewedByUserId: ownerUserId,
+          note: 'Auto-approved for seeded league'
+        });
+        await fantasyRepositories.memberships.save(membership);
+      }
+
+      const createdTournaments: FantasyTournament[] = [];
+      const tournamentCount = Math.max(1, body.tournamentCount ?? 2);
+      for (let index = 0; index < tournamentCount; index += 1) {
+        const tournament = FantasyTournament.create({
+          id: `fantasy-tournament-${Date.now().toString(36)}-${(index + 1).toString()}`,
+          leagueId: id,
+          seasonId: body.seasonId ?? 'summer-season',
+          tournamentNumber: index + 1,
+          name: `Fantasy Round ${index + 1}`,
+          status: 'draft_pending',
+          participantIds: safeParticipants,
+          scheduledAt: new Date(Date.now() + index * 86400000)
+        });
+        await fantasyRepositories.tournaments.save(tournament);
+        createdTournaments.push(tournament);
+      }
+
+      const shuffleOrder = [...safeParticipants];
+      for (let i = shuffleOrder.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffleOrder[i], shuffleOrder[j]] = [shuffleOrder[j], shuffleOrder[i]];
+      }
+
+      const pool: { id: string; gender: 'male' | 'female' }[] = orgPlayers
+        .filter((player) => player.gender !== undefined)
+        .slice(0, Math.max(2, safeParticipants.length * 2))
+        .map((player) => ({ id: player.id.value, gender: player.gender as 'male' | 'female' }));
+
+      if (pool.length === 0 || pool.length % safeParticipants.length !== 0) {
+        res.status(400).json({
+          code: 'fantasy.seed.invalid_pool',
+          message: 'There are not enough draftable players to seed the league draft.'
+        });
+        return;
+      }
+
+      const draft = DraftRoom.create({
+        id: `draft-${Date.now().toString(36)}`,
+        fantasyLeagueId: id,
+        fantasyTournamentId: createdTournaments[0].id.value,
+        organizationId: organizationRequest.organizationId,
+        order: shuffleOrder,
+        pool,
+        ownerId: ownerUserId,
+        timerSeconds: body.timerSeconds ?? 60
+      });
+
+      await fantasyRepositories.drafts.save(draft);
+      const activeTournament = createdTournaments[0];
+      await fantasyRepositories.tournaments.save(
+        FantasyTournament.create({
+          id: activeTournament.id.value,
+          leagueId: activeTournament.leagueId.value,
+          seasonId: activeTournament.seasonId.value,
+          tournamentNumber: activeTournament.tournamentNumber,
+          name: activeTournament.name,
+          status: 'draft_pending',
+          participantIds: activeTournament.participantIds.map((id) => id.value),
+          scheduledAt: activeTournament.scheduledAt,
+          draftRoomId: draft.id.value
+        })
+      );
+
+      res.status(201).json({
+        league: {
+          id: league.id.value,
+          organizationId: league.organizationId.value,
+          name: league.name,
+          ownerUserId: league.ownerUserId.value,
+          participantIds: league.participantIds.map((id) => id.value),
+          requiredApprovedParticipants: league.requiredApprovedParticipants,
+          status: league.status
+        },
+        memberships: await Promise.all(
+          memberships
+            .filter((membership) => membership.leagueId.value === id)
+            .map(async (membership) => serializeFantasyMembership(membership))
+        ),
+        tournaments: createdTournaments.map(serializeFantasyTournament),
+        draft: serializeDraft(draft)
+      });
+    });
+  }
+);
+
+app.get('/fantasy/memberships', (req: Request, res: Response) => {
+  const organizationRequest = req as OrganizationRequest;
+  void Promise.all([
+    fantasyRepositories.leagues.list(),
+    fantasyRepositories.memberships.list()
+  ]).then(([leagues, memberships]) => {
+    const leagueIds = new Set(
+      leagues
+        .filter((league) => league.organizationId.value === organizationRequest.organizationId)
+        .map((league) => league.id.value)
+    );
+
+    res.json(
+      memberships
+        .filter((membership) => leagueIds.has(membership.leagueId.value))
+        .map(serializeFantasyMembership)
+    );
+  });
+});
+
+app.get('/fantasy/tournaments', (req: Request, res: Response) => {
+  const organizationRequest = req as OrganizationRequest;
+  void Promise.all([
+    fantasyRepositories.leagues.list(),
+    fantasyRepositories.tournaments.list()
+  ]).then(([leagues, tournaments]) => {
+    const leagueIds = new Set(
+      leagues
+        .filter((league) => league.organizationId.value === organizationRequest.organizationId)
+        .map((league) => league.id.value)
+    );
+
+    res.json(
+      tournaments
+        .filter((tournament) => leagueIds.has(tournament.leagueId.value))
+        .map(serializeFantasyTournament)
+    );
+  });
+});
+
+app.get('/fantasy/teams', (req: Request, res: Response) => {
+  const organizationRequest = req as OrganizationRequest;
   void Promise.all([
     fantasyRepositories.leagues.list(),
     fantasyRepositories.teams.list()
   ]).then(([leagues, teams]) => {
     const leagueIds = new Set(
       leagues
-        .filter((league) => league.organizationId.value === req.organizationId)
+        .filter((league) => league.organizationId.value === organizationRequest.organizationId)
         .map((league) => league.id.value)
     );
     res.json(
@@ -1776,7 +2268,11 @@ app.post(
           id: leagueId,
           organizationId,
           name: `Fantasy League ${leagueId.split('-').pop() ?? leagueId}`,
-          participantIds
+          ownerUserId: participantIds[0] ?? 'user-1',
+          participantIds,
+          requiredApprovedParticipants: Math.min(5, Math.max(2, participantIds.length)),
+          maxParticipants: MAX_FANTASY_PARTICIPANTS,
+          status: 'draft'
         });
         leagueIds.add(leagueId);
         createdLeagues.push(league);
@@ -1815,12 +2311,40 @@ app.post(
   }
 );
 
+const serializeFantasyMembership = (membership: FantasyLeagueMembership) => ({
+  id: membership.id.value,
+  leagueId: membership.leagueId.value,
+  userId: membership.userId.value,
+  role: membership.role,
+  state: membership.state,
+  requestedAt: membership.requestedAt.toISOString(),
+  reviewedAt: membership.reviewedAt?.toISOString(),
+  reviewedByUserId: membership.reviewedByUserId?.value,
+  note: membership.note
+});
+
+const serializeFantasyTournament = (tournament: FantasyTournament) => ({
+  id: tournament.id.value,
+  leagueId: tournament.leagueId.value,
+  seasonId: tournament.seasonId.value,
+  tournamentNumber: tournament.tournamentNumber,
+  name: tournament.name,
+  status: tournament.status,
+  participantIds: tournament.participantIds.map((participantId) => participantId.value),
+  draftRoomId: tournament.draftRoomId?.value,
+  scheduledAt: tournament.scheduledAt?.toISOString(),
+  startedAt: tournament.startedAt?.toISOString(),
+  completedAt: tournament.completedAt?.toISOString(),
+  realTournamentId: tournament.realTournamentId?.value
+});
+
 const serializeDraft = (draft: DraftRoom) => {
   const onTheClock = draft.getParticipantOnTheClock();
   const next = draft.getNextParticipant();
   return {
     id: draft.id.value,
     fantasyLeagueId: draft.fantasyLeagueId.value,
+    fantasyTournamentId: draft.fantasyTournamentId.value,
     organizationId: draft.organizationId.value,
     status: draft.getStatus(),
     locked: draft.isLocked(),
@@ -1861,6 +2385,7 @@ app.post(
   (req: OrganizationRequest, res) => {
     const body = req.body as {
       fantasyLeagueId?: string;
+      fantasyTournamentId?: string;
       participantIds?: string[];
       poolPlayerIds?: string[];
       timerSeconds?: number;
@@ -1940,6 +2465,7 @@ app.post(
         draft = DraftRoom.create({
           id,
           fantasyLeagueId,
+          fantasyTournamentId: body.fantasyTournamentId ?? fantasyLeagueId,
           organizationId: req.organizationId,
           order: participantIds,
           pool,

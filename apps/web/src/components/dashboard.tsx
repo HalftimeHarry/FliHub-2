@@ -1,5 +1,13 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
-import { ArrowDownUp, Pencil, Plus, Trash2, X } from 'lucide-react';
+import {
+  ArrowDownUp,
+  ChevronLeft,
+  ChevronRight,
+  Pencil,
+  Plus,
+  Trash2,
+  X
+} from 'lucide-react';
 import {
   addCourse,
   addFantasyLeague,
@@ -8,8 +16,10 @@ import {
   addOrganizationDepartment,
   addTeam,
   addTournament,
+  approveFantasyLeagueMembership,
   assignAllTournamentTeeGroupScorekeepers,
   assignTournamentTeeGroupScorekeeper,
+  createFantasyTournament,
   createSeason,
   deleteSeason,
   deleteCourse,
@@ -17,11 +27,14 @@ import {
   deleteTournament,
   deleteTournaments,
   createDraft,
+  requestFantasyLeagueMembership,
   fetchCourses,
   fetchDepartments,
   fetchDrafts,
   fetchFantasyLeagues,
+  fetchFantasyMemberships,
   fetchFantasyTeams,
+  fetchFantasyTournaments,
   fetchHoles,
   fetchOrganizationUsers,
   fetchPlayers,
@@ -37,6 +50,7 @@ import {
   makeDraftPick,
   openDraft,
   seedFantasy,
+  seedFantasyLeague,
   seedSixTournaments,
   seedTournamentTeeGroups,
   seedTournamentGroupsAndAssignAllScorekeepers,
@@ -50,7 +64,9 @@ import {
   type DepartmentDto,
   type DraftRoomDto,
   type FantasyLeagueDto,
+  type FantasyMembershipDto,
   type FantasyTeamDto,
+  type FantasyTournamentDto,
   type HoleDto,
   type PlayerDto,
   type ProjectDto,
@@ -102,6 +118,8 @@ interface DashboardData {
   readonly projects: readonly ProjectDto[];
   readonly claims: readonly ReimbursementClaimDto[];
   readonly fantasyLeagues: readonly FantasyLeagueDto[];
+  readonly fantasyMemberships: readonly FantasyMembershipDto[];
+  readonly fantasyTournaments: readonly FantasyTournamentDto[];
   readonly fantasyTeams: readonly FantasyTeamDto[];
   readonly drafts: readonly DraftRoomDto[];
   readonly users: readonly UserDto[];
@@ -116,6 +134,25 @@ type TournamentSortKey =
   | 'courseId'
   | 'type';
 
+const dashboardSections = [
+  { value: 'seasons', label: 'Seasons' },
+  { value: 'players', label: 'Players' },
+  { value: 'teams', label: 'Teams' },
+  { value: 'tournaments', label: 'Tournaments' },
+  { value: 'groups', label: 'Groups' },
+  { value: 'scoring', label: 'Scoring' },
+  { value: 'courses', label: 'Courses' },
+  { value: 'holes', label: 'Holes' },
+  { value: 'registrations', label: 'Registrations' },
+  { value: 'fantasy', label: 'Fantasy' },
+  { value: 'drafts', label: 'Drafts' },
+  { value: 'departments', label: 'Departments' },
+  { value: 'projects', label: 'Projects' },
+  { value: 'claims', label: 'Claims' }
+] as const;
+
+type DashboardSection = (typeof dashboardSections)[number]['value'];
+
 const getPlayerTeamName = (
   playerId: string,
   teams: readonly TeamDto[]
@@ -123,6 +160,16 @@ const getPlayerTeamName = (
   teams.find(
     (team) => team.malePlayerId === playerId || team.femalePlayerId === playerId
   )?.name ?? '';
+
+const getCourseNameById = (
+  courseId: string,
+  courses: readonly CourseDto[]
+): string => courses.find((course) => course.id === courseId)?.name ?? courseId;
+
+const getHoleDisplayName = (
+  hole: HoleDto,
+  courses: readonly CourseDto[]
+): string => `${getCourseNameById(hole.courseId, courses)} • Hole ${hole.number}`;
 
 function AddDepartmentForm({
   onAdded
@@ -1505,8 +1552,15 @@ function AddHoleForm({
   const [courseId, setCourseId] = useState('');
   const [number, setNumber] = useState('1');
   const [par, setPar] = useState('3');
+  const [blueBasket, setBlueBasket] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleNumberChange = (value: string) => {
+    const nextNumber = Number(value) || 1;
+    setNumber(value);
+    setBlueBasket(nextNumber <= 9);
+  };
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1520,7 +1574,8 @@ function AddHoleForm({
       await addHole({
         courseId,
         number: Number(number) || 1,
-        par: Number(par) || 3
+        par: Number(par) || 3,
+        blueBasket
       });
       onAdded?.();
     } catch (caught) {
@@ -1558,7 +1613,7 @@ function AddHoleForm({
           className="w-24"
           value={number}
           onChange={(event) => {
-            setNumber(event.target.value);
+            handleNumberChange(event.target.value);
           }}
         />
       </div>
@@ -1574,6 +1629,23 @@ function AddHoleForm({
             setPar(event.target.value);
           }}
         />
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="new-hole-blue-basket">Basket</Label>
+        <div className="flex items-center gap-2">
+          <input
+            id="new-hole-blue-basket"
+            type="checkbox"
+            checked={blueBasket}
+            onChange={(event) => {
+              setBlueBasket(event.target.checked);
+            }}
+            className="size-4 accent-primary"
+          />
+          <span className="text-sm text-muted-foreground">
+            {blueBasket ? 'Blue basket (front 9)' : 'Red basket (back 9)'}
+          </span>
+        </div>
       </div>
       <Button type="submit" disabled={courseId === '' || submitting}>
         {submitting ? 'Adding…' : 'Add hole'}
@@ -2220,6 +2292,12 @@ export function Dashboard({
   readonly currentUser?: UserDto;
 }) {
   const [data, setData] = useState<DashboardData | undefined>(undefined);
+  const [fantasyLeagueId, setFantasyLeagueId] = useState('');
+  const [fantasyMemberUserId, setFantasyMemberUserId] = useState('');
+  const [fantasyTournamentName, setFantasyTournamentName] = useState('');
+  const [fantasySeedName, setFantasySeedName] = useState('');
+  const [fantasyActionError, setFantasyActionError] = useState<string | undefined>(undefined);
+  const [fantasyBusy, setFantasyBusy] = useState(false);
   const [editingSeason, setEditingSeason] = useState<SeasonDto | undefined>(undefined);
   const [editingTournament, setEditingTournament] = useState<TournamentDto | undefined>(undefined);
   const [editingCourse, setEditingCourse] = useState<CourseDto | undefined>(undefined);
@@ -2228,6 +2306,13 @@ export function Dashboard({
   const [selectedHoleIds, setSelectedHoleIds] = useState<readonly string[]>([]);
   const [deletingHoles, setDeletingHoles] = useState(false);
   const [creatingSeason, setCreatingSeason] = useState(false);
+  const [activeSection, setActiveSection] = useState<DashboardSection>('seasons');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.innerWidth < 768;
+  });
   const [seasonActionError, setSeasonActionError] = useState<string | undefined>(undefined);
   const [playerSort, setPlayerSort] = useState<{
     key: PlayerSortKey;
@@ -2237,6 +2322,24 @@ export function Dashboard({
     key: TournamentSortKey;
     direction: 'ascending' | 'descending';
   }>({ key: 'scheduledOn', direction: 'descending' });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const handleChange = () => {
+      setSidebarCollapsed(mediaQuery.matches);
+    };
+
+    handleChange();
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -2253,6 +2356,8 @@ export function Dashboard({
       fetchProjects(),
       fetchReimbursementClaims(),
       fetchFantasyLeagues(),
+      fetchFantasyMemberships(),
+      fetchFantasyTournaments(),
       fetchFantasyTeams(),
       fetchDrafts(),
       fetchOrganizationUsers()
@@ -2269,6 +2374,8 @@ export function Dashboard({
         projects,
         claims,
         fantasyLeagues,
+        fantasyMemberships,
+        fantasyTournaments,
         fantasyTeams,
         drafts,
         users
@@ -2286,6 +2393,8 @@ export function Dashboard({
             projects,
             claims,
             fantasyLeagues,
+            fantasyMemberships,
+            fantasyTournaments,
             fantasyTeams,
             drafts,
             users
@@ -2298,6 +2407,91 @@ export function Dashboard({
       cancelled = true;
     };
   }, [refreshKey]);
+
+  const selectedFantasyLeague = data?.fantasyLeagues.find((league) => league.id === fantasyLeagueId) ?? data?.fantasyLeagues[0];
+
+  const handleFantasyJoin = async () => {
+    if (selectedFantasyLeague === undefined) {
+      setFantasyActionError('Create a league before requesting to join.');
+      return;
+    }
+    setFantasyBusy(true);
+    setFantasyActionError(undefined);
+    try {
+      const targetUserId = fantasyMemberUserId || currentUser?.id || data?.users[0]?.id;
+      if (targetUserId === undefined) {
+        throw new Error('Select an organization user to join.');
+      }
+      await requestFantasyLeagueMembership({
+        leagueId: selectedFantasyLeague.id,
+        userId: targetUserId,
+        role: 'participant'
+      });
+      setFantasyMemberUserId('');
+      onDepartmentsChanged?.();
+    } catch (caught) {
+      setFantasyActionError(caught instanceof Error ? caught.message : 'Could not request membership.');
+    } finally {
+      setFantasyBusy(false);
+    }
+  };
+
+  const handleFantasyApprove = async (membershipId: string, leagueId: string) => {
+    setFantasyBusy(true);
+    setFantasyActionError(undefined);
+    try {
+      await approveFantasyLeagueMembership({ leagueId, membershipId });
+      onDepartmentsChanged?.();
+    } catch (caught) {
+      setFantasyActionError(caught instanceof Error ? caught.message : 'Could not approve membership.');
+    } finally {
+      setFantasyBusy(false);
+    }
+  };
+
+  const handleFantasyCreateTournament = async () => {
+    if (selectedFantasyLeague === undefined) {
+      setFantasyActionError('Select a league to create a fantasy tournament.');
+      return;
+    }
+    setFantasyBusy(true);
+    setFantasyActionError(undefined);
+    try {
+      await createFantasyTournament(selectedFantasyLeague.id, {
+        name: fantasyTournamentName.trim() || undefined,
+        scheduledAt: new Date().toISOString()
+      });
+      setFantasyTournamentName('');
+      onDepartmentsChanged?.();
+    } catch (caught) {
+      setFantasyActionError(
+        caught instanceof Error ? caught.message : 'Could not create the tournament.'
+      );
+    } finally {
+      setFantasyBusy(false);
+    }
+  };
+
+  const handleSeedFantasyLeague = async () => {
+    setFantasyBusy(true);
+    setFantasyActionError(undefined);
+    try {
+      await seedFantasyLeague({
+        name: fantasySeedName.trim() || undefined,
+        participantUserIds: data?.users.map((user) => user.id).slice(0, 5),
+        tournamentCount: 2,
+        timerSeconds: 60
+      });
+      setFantasySeedName('');
+      onDepartmentsChanged?.();
+    } catch (caught) {
+      setFantasyActionError(
+        caught instanceof Error ? caught.message : 'Could not seed the fantasy league.'
+      );
+    } finally {
+      setFantasyBusy(false);
+    }
+  };
 
   const sortPlayers = (key: PlayerSortKey) => {
     setPlayerSort((current) => ({
@@ -2425,258 +2619,120 @@ export function Dashboard({
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Dashboard</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="seasons">
-          <TabsList>
-            <TabsTrigger value="seasons">Seasons</TabsTrigger>
-            <TabsTrigger value="players">Players</TabsTrigger>
-            <TabsTrigger value="teams">Teams</TabsTrigger>
-            <TabsTrigger value="tournaments">Tournaments</TabsTrigger>
-            <TabsTrigger value="groups">Groups</TabsTrigger>
-            <TabsTrigger value="scoring">Scoring</TabsTrigger>
-            <TabsTrigger value="courses">Courses</TabsTrigger>
-            <TabsTrigger value="holes">Holes</TabsTrigger>
-            <TabsTrigger value="registrations">Registrations</TabsTrigger>
-            <TabsTrigger value="fantasy">Fantasy</TabsTrigger>
-            <TabsTrigger value="drafts">Drafts</TabsTrigger>
-            <TabsTrigger value="departments">Departments</TabsTrigger>
-            <TabsTrigger value="projects">Projects</TabsTrigger>
-            <TabsTrigger value="claims">Claims</TabsTrigger>
-          </TabsList>
-          <TabsContent value="players">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {[
-                    ['id', 'ID'],
-                    ['displayName', 'Name'],
-                    ['team', 'Team'],
-                    ['playerType', 'Type'],
-                    ['active', 'Status']
-                  ].map(([key, label]) => {
-                    const sortKey = key as PlayerSortKey;
-                    const isSorted = playerSort.key === sortKey;
-                    return (
-                      <TableHead
-                        key={sortKey}
-                        aria-sort={
-                          isSorted ? playerSort.direction : 'none'
-                        }
-                      >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="-ml-3"
-                          onClick={() => {
-                            sortPlayers(sortKey);
-                          }}
-                        >
-                          {label}
-                          <ArrowDownUp />
-                        </Button>
-                      </TableHead>
-                    );
-                  })}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedPlayers.map((player) => (
-                  <TableRow key={player.id}>
-                    <TableCell>{player.id}</TableCell>
-                    <TableCell>{player.displayName}</TableCell>
-                    <TableCell>
-                      {getPlayerTeamName(player.id, data?.teams ?? []) || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
-                        {player.playerType === 'professional'
-                          ? 'professional'
-                          : 'student'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={player.active ? 'default' : 'secondary'}>
-                        {player.active ? 'active' : 'inactive'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TabsContent>
-          <TabsContent value="seasons">
-            <div className="mb-4 flex justify-end">
-              <Button type="button" onClick={() => { setCreatingSeason(true); }} disabled={(data?.seasons.length ?? 0) === 0}>
-                <Plus />
-                New season
-              </Button>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>League</TableHead>
-                  <TableHead>Starts</TableHead>
-                  <TableHead>Ends</TableHead>
-                  <TableHead>Yearly purse</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.seasons.map((season) => (
-                  <TableRow key={season.id}>
-                    <TableCell>{season.name}</TableCell>
-                    <TableCell>{season.leagueId}</TableCell>
-                    <TableCell>{new Date(season.startsOn).toLocaleDateString()}</TableCell>
-                    <TableCell>{new Date(season.endsOn).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      {(season.yearlyPurseMinorUnits / 100).toLocaleString(
-                        undefined,
-                        {
-                          style: 'currency',
-                          currency: season.yearlyPurseCurrency,
-                          maximumFractionDigits: 0
-                        }
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          season.status === 'current' ? 'default' : 'outline'
-                        }
-                      >
-                        {season.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center">
-                        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${season.name}`} onClick={() => { setEditingSeason(season); }}><Pencil /></Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Delete ${season.name}`}
-                          onClick={() => {
-                            if (!window.confirm(`Delete ${season.name}? Seasons with tournaments cannot be deleted.`)) return;
-                            void deleteSeason(season.id).then(
-                              () => onDepartmentsChanged?.(),
-                              (caught: unknown) => {
-                                setSeasonActionError(caught instanceof Error ? caught.message : 'Could not delete season.');
-                              }
-                            );
-                          }}
-                        ><Trash2 /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {editingSeason !== undefined && (
-              <EditSeasonModal
-                season={editingSeason}
-                onClose={() => {
-                  setEditingSeason(undefined);
+    <div className="flex min-h-[720px] w-full overflow-hidden border border-l-0 border-r-0 bg-background shadow-sm">
+      <aside
+        className={[
+          'flex shrink-0 flex-col border-r bg-muted/20 transition-all duration-200',
+          sidebarCollapsed ? 'w-16 md:w-20' : 'w-56 md:w-64',
+          'md:sticky md:top-0'
+        ].join(' ')}
+      >
+        <div className="flex h-16 items-center justify-between border-b px-3">
+          <span
+            className={[
+              'text-sm font-semibold uppercase tracking-[0.18em] text-muted-foreground',
+              sidebarCollapsed ? 'sr-only' : ''
+            ].join(' ')}
+          >
+            Dashboard
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="hidden md:inline-flex"
+            onClick={() => {
+              setSidebarCollapsed((current) => !current);
+            }}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="md:hidden"
+            onClick={() => {
+              setSidebarCollapsed((current) => !current);
+            }}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
+          </Button>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-1 p-2">
+          {dashboardSections.map((section) => {
+            const isSelected = activeSection === section.value;
+            return (
+              <Button
+                key={section.value}
+                type="button"
+                variant={isSelected ? 'secondary' : 'ghost'}
+                size={sidebarCollapsed ? 'icon-sm' : 'sm'}
+                className={[
+                  'justify-start',
+                  sidebarCollapsed ? 'px-2' : 'px-3',
+                  isSelected ? 'font-medium' : ''
+                ].join(' ')}
+                onClick={() => {
+                  setActiveSection(section.value);
                 }}
-                onSaved={onDepartmentsChanged ?? (() => undefined)}
-              />
-            )}
-            {creatingSeason && data?.seasons[0] !== undefined && (
-              <NewSeasonModal
-                leagueId={data.seasons[0].leagueId}
-                onClose={() => { setCreatingSeason(false); }}
-                onSaved={onDepartmentsChanged ?? (() => undefined)}
-              />
-            )}
-            {seasonActionError !== undefined && <p className="mt-3 text-sm text-destructive">{seasonActionError}</p>}
-          </TabsContent>
-          <TabsContent value="teams">
-            <div className="flex flex-col gap-4">
-              <AddTeamForm
-                players={data?.players ?? []}
-                onAdded={onDepartmentsChanged}
-              />
+                aria-current={isSelected ? 'page' : undefined}
+                title={section.label}
+              >
+                <span className={sidebarCollapsed ? 'sr-only' : 'truncate'}>
+                  {section.label}
+                </span>
+              </Button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              className="md:hidden"
+              onClick={() => {
+                setSidebarCollapsed((current) => !current);
+              }}
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? <ChevronRight /> : <ChevronLeft />}
+            </Button>
+            <span className="text-lg font-semibold tracking-tight">
+              {dashboardSections.find((section) => section.value === activeSection)?.label ?? 'Dashboard'}
+            </span>
+          </div>
+          <span className="text-sm text-muted-foreground">Workspace</span>
+        </header>
+
+        <main className="flex-1 overflow-auto p-4 md:p-6">
+          <>
+            {activeSection === 'players' && (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Male player</TableHead>
-                    <TableHead>Female player</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.teams.map((team) => (
-                    <TableRow key={team.id}>
-                      <TableCell>{team.id}</TableCell>
-                      <TableCell>{team.name}</TableCell>
-                      <TableCell>{team.malePlayerId}</TableCell>
-                      <TableCell>{team.femalePlayerId}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-          <TabsContent value="tournaments">
-            <div className="flex flex-col gap-4">
-              <AddTournamentForm
-                courses={data?.courses ?? []}
-                seasons={data?.seasons ?? []}
-                onAdded={onDepartmentsChanged}
-              />
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  {selectedTournamentIds.length.toString()} selected
-                </p>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  disabled={selectedTournamentIds.length === 0 || deletingTournaments}
-                  onClick={() => {
-                    void deleteSelectedTournaments();
-                  }}
-                >
-                  <Trash2 />
-                  {deletingTournaments ? 'Deleting...' : 'Delete selected'}
-                </Button>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all tournaments"
-                        checked={
-                          (data?.tournaments.length ?? 0) > 0 &&
-                          selectedTournamentIds.length === data?.tournaments.length
-                        }
-                        onChange={toggleAllTournaments}
-                        className="size-4 accent-primary"
-                      />
-                    </TableHead>
                     {[
                       ['id', 'ID'],
-                      ['name', 'Name'],
-                      ['scheduledOn', 'Date'],
-                      ['courseId', 'Course'],
-                      ['type', 'Type']
+                      ['displayName', 'Name'],
+                      ['team', 'Team'],
+                      ['playerType', 'Type'],
+                      ['active', 'Status']
                     ].map(([key, label]) => {
-                      const sortKey = key as TournamentSortKey;
-                      const isSorted = tournamentSort.key === sortKey;
+                      const sortKey = key as PlayerSortKey;
+                      const isSorted = playerSort.key === sortKey;
                       return (
                         <TableHead
                           key={sortKey}
                           aria-sort={
-                            isSorted ? tournamentSort.direction : 'none'
+                            isSorted ? playerSort.direction : 'none'
                           }
                         >
                           <Button
@@ -2685,7 +2741,7 @@ export function Dashboard({
                             size="sm"
                             className="-ml-3"
                             onClick={() => {
-                              sortTournaments(sortKey);
+                              sortPlayers(sortKey);
                             }}
                           >
                             {label}
@@ -2694,220 +2750,522 @@ export function Dashboard({
                         </TableHead>
                       );
                     })}
-                    <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedTournaments.map((tournament) => (
-                    <TableRow key={tournament.id}>
+                  {sortedPlayers.map((player) => (
+                    <TableRow key={player.id}>
+                      <TableCell>{player.id}</TableCell>
+                      <TableCell>{player.displayName}</TableCell>
                       <TableCell>
-                        <input
-                          type="checkbox"
-                          aria-label={`Select ${tournament.name}`}
-                          checked={selectedTournamentIds.includes(tournament.id)}
-                          onChange={() => {
-                            toggleTournament(tournament.id);
-                          }}
-                          className="size-4 accent-primary"
-                        />
+                        {getPlayerTeamName(player.id, data?.teams ?? []) || '—'}
                       </TableCell>
-                      <TableCell>{tournament.id}</TableCell>
-                      <TableCell>{tournament.name}</TableCell>
-                      <TableCell>
-                        {tournament.scheduledOn === undefined
-                          ? '—'
-                          : new Date(tournament.scheduledOn).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>{tournament.courseId ?? '—'}</TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {tournament.type === 'fli' ? 'FLI' : 'Multi Round'}
+                          {player.playerType === 'professional'
+                            ? 'professional'
+                            : 'student'}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center">
-                          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${tournament.name}`} onClick={() => { setEditingTournament(tournament); }}><Pencil /></Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${tournament.name}`}
-                            onClick={() => {
-                              if (!window.confirm(`Delete ${tournament.name}? Tournaments with registrations cannot be deleted.`)) return;
-                              void deleteTournament(tournament.id).then(
-                                () => onDepartmentsChanged?.(),
-                                (caught: unknown) => {
-                                  setSeasonActionError(caught instanceof Error ? caught.message : 'Could not delete tournament.');
-                                }
-                              );
-                            }}
-                          ><Trash2 /></Button>
-                        </div>
+                        <Badge variant={player.active ? 'default' : 'secondary'}>
+                          {player.active ? 'active' : 'inactive'}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-              {editingTournament !== undefined && (
-                <EditTournamentModal
-                  tournament={editingTournament}
-                  seasons={data?.seasons ?? []}
-                  courses={data?.courses ?? []}
-                  onClose={() => { setEditingTournament(undefined); }}
-                  onSaved={onDepartmentsChanged ?? (() => undefined)}
-                />
-              )}
-              {seasonActionError !== undefined && <p className="text-sm text-destructive">{seasonActionError}</p>}
-            </div>
-          </TabsContent>
-          <TabsContent value="groups">
-            <TournamentSetup
-              tournaments={data?.tournaments ?? []}
-              courses={data?.courses ?? []}
-              users={data?.users ?? []}
-            />
-          </TabsContent>
-          <TabsContent value="scoring">
-            <ScorekeeperWorklist
-              user={currentUser}
-              tournaments={data?.tournaments ?? []}
-              courses={data?.courses ?? []}
-            />
-          </TabsContent>
-          <TabsContent value="courses">
-            <div className="flex flex-col gap-4">
-              <AddCourseForm onAdded={onDepartmentsChanged} />
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Holes</TableHead>
-                    <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.courses.map((course) => (
-                    <TableRow key={course.id}>
-                      <TableCell>{course.id}</TableCell>
-                      <TableCell>{course.name}</TableCell>
-                      <TableCell>{course.holeCount}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center">
-                          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${course.name}`} onClick={() => { setEditingCourse(course); }}><Pencil /></Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${course.name}`}
-                            onClick={() => {
-                              if (!window.confirm(`Delete ${course.name}? Courses with holes or tournaments cannot be deleted.`)) return;
-                              void deleteCourse(course.id).then(
-                                () => onDepartmentsChanged?.(),
-                                (caught: unknown) => {
-                                  setSeasonActionError(caught instanceof Error ? caught.message : 'Could not delete course.');
-                                }
-                              );
-                            }}
-                          ><Trash2 /></Button>
-                        </div>
-                      </TableCell>
+            )}
+
+            {activeSection === 'seasons' && (
+              <>
+                <div className="mb-4 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setCreatingSeason(true);
+                    }}
+                    disabled={(data?.seasons.length ?? 0) === 0}
+                  >
+                    <Plus />
+                    New season
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>League</TableHead>
+                      <TableHead>Starts</TableHead>
+                      <TableHead>Ends</TableHead>
+                      <TableHead>Yearly purse</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {editingCourse !== undefined && (
-                <EditCourseModal
-                  course={editingCourse}
-                  onClose={() => { setEditingCourse(undefined); }}
-                  onSaved={onDepartmentsChanged ?? (() => undefined)}
-                />
-              )}
-              {seasonActionError !== undefined && <p className="text-sm text-destructive">{seasonActionError}</p>}
-            </div>
-          </TabsContent>
-          <TabsContent value="holes">
-            <div className="flex flex-col gap-4">
-              <AddHoleForm
-                courses={data?.courses ?? []}
-                onAdded={onDepartmentsChanged}
-              />
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  {selectedHoleIds.length.toString()} selected
-                </p>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  disabled={selectedHoleIds.length === 0 || deletingHoles}
-                  onClick={() => {
-                    void deleteSelectedHoles();
-                  }}
-                >
-                  <Trash2 />
-                  {deletingHoles ? 'Deleting...' : 'Delete selected'}
-                </Button>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.seasons.map((season) => (
+                      <TableRow key={season.id}>
+                        <TableCell>{season.name}</TableCell>
+                        <TableCell>{season.leagueId}</TableCell>
+                        <TableCell>{new Date(season.startsOn).toLocaleDateString()}</TableCell>
+                        <TableCell>{new Date(season.endsOn).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          {(season.yearlyPurseMinorUnits / 100).toLocaleString(
+                            undefined,
+                            {
+                              style: 'currency',
+                              currency: season.yearlyPurseCurrency,
+                              maximumFractionDigits: 0
+                            }
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              season.status === 'current' ? 'default' : 'outline'
+                            }
+                          >
+                            {season.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${season.name}`}
+                              onClick={() => {
+                                setEditingSeason(season);
+                              }}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${season.name}`}
+                              onClick={() => {
+                                if (!window.confirm(`Delete ${season.name}? Seasons with tournaments cannot be deleted.`)) return;
+                                void deleteSeason(season.id).then(
+                                  () => onDepartmentsChanged?.(),
+                                  (caught: unknown) => {
+                                    setSeasonActionError(
+                                      caught instanceof Error
+                                        ? caught.message
+                                        : 'Could not delete season.'
+                                    );
+                                  }
+                                );
+                              }}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {editingSeason !== undefined && (
+                  <EditSeasonModal
+                    season={editingSeason}
+                    onClose={() => {
+                      setEditingSeason(undefined);
+                    }}
+                    onSaved={onDepartmentsChanged ?? (() => undefined)}
+                  />
+                )}
+                {creatingSeason && data?.seasons[0] !== undefined && (
+                  <NewSeasonModal
+                    leagueId={data.seasons[0].leagueId}
+                    onClose={() => {
+                      setCreatingSeason(false);
+                    }}
+                    onSaved={onDepartmentsChanged ?? (() => undefined)}
+                  />
+                )}
+                {seasonActionError !== undefined && (
+                  <p className="mt-3 text-sm text-destructive">{seasonActionError}</p>
+                )}
+              </>
+            )}
+
+            {activeSection === 'teams' && (
+              <div className="flex flex-col gap-4">
+                <AddTeamForm players={data?.players ?? []} onAdded={onDepartmentsChanged} />
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Male player</TableHead>
+                      <TableHead>Female player</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.teams.map((team) => (
+                      <TableRow key={team.id}>
+                        <TableCell>{team.id}</TableCell>
+                        <TableCell>{team.name}</TableCell>
+                        <TableCell>{team.malePlayerId}</TableCell>
+                        <TableCell>{team.femalePlayerId}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12">
-                      <input
-                        type="checkbox"
-                        aria-label="Select all holes"
-                        checked={
-                          (data?.holes.length ?? 0) > 0 &&
-                          selectedHoleIds.length === data?.holes.length
-                        }
-                        onChange={toggleAllHoles}
-                        className="size-4 accent-primary"
-                      />
-                    </TableHead>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Course</TableHead>
-                    <TableHead>Number</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Par</TableHead>
-                    <TableHead>Distance</TableHead>
-                    <TableHead>Blue basket</TableHead>
-                    <TableHead>Red basket</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.holes.map((hole) => (
-                    <TableRow key={hole.id}>
-                      <TableCell>
+            )}
+
+            {activeSection === 'tournaments' && (
+              <div className="flex flex-col gap-4">
+                <AddTournamentForm
+                  courses={data?.courses ?? []}
+                  seasons={data?.seasons ?? []}
+                  onAdded={onDepartmentsChanged}
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedTournamentIds.length.toString()} selected
+                  </p>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={selectedTournamentIds.length === 0 || deletingTournaments}
+                    onClick={() => {
+                      void deleteSelectedTournaments();
+                    }}
+                  >
+                    <Trash2 />
+                    {deletingTournaments ? 'Deleting...' : 'Delete selected'}
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
                         <input
                           type="checkbox"
-                          aria-label={`Select ${hole.id}`}
-                          checked={selectedHoleIds.includes(hole.id)}
-                          onChange={() => {
-                            toggleHole(hole.id);
-                          }}
+                          aria-label="Select all tournaments"
+                          checked={
+                            (data?.tournaments.length ?? 0) > 0 &&
+                            selectedTournamentIds.length === data?.tournaments.length
+                          }
+                          onChange={toggleAllTournaments}
                           className="size-4 accent-primary"
                         />
-                      </TableCell>
-                      <TableCell>{hole.id}</TableCell>
-                      <TableCell>{hole.courseId}</TableCell>
-                      <TableCell>{hole.number}</TableCell>
-                      <TableCell>{hole.name ?? '—'}</TableCell>
-                      <TableCell>{hole.par}</TableCell>
-                      <TableCell>
-                        {hole.distanceFeet === undefined
-                          ? '—'
-                          : `${hole.distanceFeet.toString()} ft`}
-                      </TableCell>
-                      <TableCell>{hole.blueBasketPosition ?? '—'}</TableCell>
-                      <TableCell>{hole.redBasketPosition ?? '—'}</TableCell>
+                      </TableHead>
+                      {[
+                        ['id', 'ID'],
+                        ['name', 'Name'],
+                        ['scheduledOn', 'Date'],
+                        ['courseId', 'Course'],
+                        ['type', 'Type']
+                      ].map(([key, label]) => {
+                        const sortKey = key as TournamentSortKey;
+                        const isSorted = tournamentSort.key === sortKey;
+                        return (
+                          <TableHead
+                            key={sortKey}
+                            aria-sort={
+                              isSorted ? tournamentSort.direction : 'none'
+                            }
+                          >
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="-ml-3"
+                              onClick={() => {
+                                sortTournaments(sortKey);
+                              }}
+                            >
+                              {label}
+                              <ArrowDownUp />
+                            </Button>
+                          </TableHead>
+                        );
+                      })}
+                      <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-          <TabsContent value="registrations">
-            <Table>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedTournaments.map((tournament) => (
+                      <TableRow key={tournament.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${tournament.name}`}
+                            checked={selectedTournamentIds.includes(tournament.id)}
+                            onChange={() => {
+                              toggleTournament(tournament.id);
+                            }}
+                            className="size-4 accent-primary"
+                          />
+                        </TableCell>
+                        <TableCell>{tournament.id}</TableCell>
+                        <TableCell>{tournament.name}</TableCell>
+                        <TableCell>
+                          {tournament.scheduledOn === undefined
+                            ? '—'
+                            : new Date(tournament.scheduledOn).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>{tournament.courseId ?? '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {tournament.type === 'fli' ? 'FLI' : 'Multi Round'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${tournament.name}`}
+                              onClick={() => {
+                                setEditingTournament(tournament);
+                              }}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${tournament.name}`}
+                              onClick={() => {
+                                if (!window.confirm(`Delete ${tournament.name}? Tournaments with registrations cannot be deleted.`)) return;
+                                void deleteTournament(tournament.id).then(
+                                  () => onDepartmentsChanged?.(),
+                                  (caught: unknown) => {
+                                    setSeasonActionError(
+                                      caught instanceof Error
+                                        ? caught.message
+                                        : 'Could not delete tournament.'
+                                    );
+                                  }
+                                );
+                              }}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {editingTournament !== undefined && (
+                  <EditTournamentModal
+                    tournament={editingTournament}
+                    seasons={data?.seasons ?? []}
+                    courses={data?.courses ?? []}
+                    onClose={() => {
+                      setEditingTournament(undefined);
+                    }}
+                    onSaved={onDepartmentsChanged ?? (() => undefined)}
+                  />
+                )}
+                {seasonActionError !== undefined && (
+                  <p className="text-sm text-destructive">{seasonActionError}</p>
+                )}
+              </div>
+            )}
+
+            {activeSection === 'groups' && (
+              <TournamentSetup
+                tournaments={data?.tournaments ?? []}
+                courses={data?.courses ?? []}
+                users={data?.users ?? []}
+              />
+            )}
+
+            {activeSection === 'scoring' && (
+              <ScorekeeperWorklist
+                user={currentUser}
+                tournaments={data?.tournaments ?? []}
+                courses={data?.courses ?? []}
+              />
+            )}
+
+            {activeSection === 'courses' && (
+              <div className="flex flex-col gap-4">
+                <AddCourseForm onAdded={onDepartmentsChanged} />
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Holes</TableHead>
+                      <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.courses.map((course) => (
+                      <TableRow key={course.id}>
+                        <TableCell>{course.id}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{course.name}</span>
+                            <span className="text-xs text-muted-foreground">{course.id}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{course.holeCount}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${course.name}`}
+                              onClick={() => {
+                                setEditingCourse(course);
+                              }}
+                            >
+                              <Pencil />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${course.name}`}
+                              onClick={() => {
+                                if (!window.confirm(`Delete ${course.name}? Courses with holes or tournaments cannot be deleted.`)) return;
+                                void deleteCourse(course.id).then(
+                                  () => onDepartmentsChanged?.(),
+                                  (caught: unknown) => {
+                                    setSeasonActionError(
+                                      caught instanceof Error
+                                        ? caught.message
+                                        : 'Could not delete course.'
+                                    );
+                                  }
+                                );
+                              }}
+                            >
+                              <Trash2 />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {editingCourse !== undefined && (
+                  <EditCourseModal
+                    course={editingCourse}
+                    onClose={() => {
+                      setEditingCourse(undefined);
+                    }}
+                    onSaved={onDepartmentsChanged ?? (() => undefined)}
+                  />
+                )}
+                {seasonActionError !== undefined && (
+                  <p className="text-sm text-destructive">{seasonActionError}</p>
+                )}
+              </div>
+            )}
+
+            {activeSection === 'holes' && (
+              <div className="flex flex-col gap-4">
+                <AddHoleForm courses={data?.courses ?? []} onAdded={onDepartmentsChanged} />
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedHoleIds.length.toString()} selected
+                  </p>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={selectedHoleIds.length === 0 || deletingHoles}
+                    onClick={() => {
+                      void deleteSelectedHoles();
+                    }}
+                  >
+                    <Trash2 />
+                    {deletingHoles ? 'Deleting...' : 'Delete selected'}
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all holes"
+                          checked={
+                            (data?.holes.length ?? 0) > 0 &&
+                            selectedHoleIds.length === data?.holes.length
+                          }
+                          onChange={toggleAllHoles}
+                          className="size-4 accent-primary"
+                        />
+                      </TableHead>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Course</TableHead>
+                      <TableHead>Number</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Par</TableHead>
+                      <TableHead>Distance</TableHead>
+                      <TableHead>Basket</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.holes.map((hole) => (
+                      <TableRow key={hole.id}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${hole.id}`}
+                            checked={selectedHoleIds.includes(hole.id)}
+                            onChange={() => {
+                              toggleHole(hole.id);
+                            }}
+                            className="size-4 accent-primary"
+                          />
+                        </TableCell>
+                        <TableCell>{hole.id}</TableCell>
+                        <TableCell>{getCourseNameById(hole.courseId, data?.courses ?? [])}</TableCell>
+                        <TableCell>{hole.number}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{hole.name ?? getHoleDisplayName(hole, data?.courses ?? [])}</span>
+                            <span className="text-xs text-muted-foreground">{hole.id}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{hole.par}</TableCell>
+                        <TableCell>
+                          {hole.distanceFeet === undefined
+                            ? '—'
+                            : `${hole.distanceFeet.toString()} ft`}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={hole.blueBasket ? 'default' : 'secondary'}
+                            className={hole.blueBasket
+                              ? 'inline-flex items-center gap-1.5 rounded-full border border-blue-600/30 bg-blue-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-700 dark:text-blue-200'
+                              : 'inline-flex items-center gap-1.5 rounded-full border border-red-600/30 bg-red-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-700 dark:text-red-200'}
+                          >
+                            <span
+                              className={`inline-block size-1.5 rounded-full ${hole.blueBasket ? 'bg-blue-600 dark:bg-blue-400' : 'bg-red-600 dark:bg-red-400'}`}
+                            />
+                            {hole.blueBasket ? 'Blue' : 'Red'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {activeSection === 'registrations' && (
+              <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tournament</TableHead>
@@ -2926,152 +3284,305 @@ export function Dashboard({
                     </TableRow>
                   ))}
                 </TableBody>
-            </Table>
-          </TabsContent>
-          <TabsContent value="fantasy">
-            <div className="flex flex-col gap-4">
-              <FantasySeedControls />
-              <AddFantasyLeagueForm
-                players={data?.players ?? []}
-                onAdded={onDepartmentsChanged}
-              />
-              <AddFantasyTeamForm
-                leagues={data?.fantasyLeagues ?? []}
-                players={data?.players ?? []}
-                onAdded={onDepartmentsChanged}
-              />
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <h3 className="mb-2 font-medium">Leagues</h3>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Participants</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data?.fantasyLeagues.map((league) => (
-                        <TableRow key={league.id}>
-                          <TableCell>{league.id}</TableCell>
-                          <TableCell>{league.name}</TableCell>
-                          <TableCell>{league.participantIds.length}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              </Table>
+            )}
+
+            {activeSection === 'fantasy' && (
+              <div className="flex flex-col gap-4">
+                <FantasySeedControls />
+                <AddFantasyLeagueForm
+                  players={data?.players ?? []}
+                  onAdded={onDepartmentsChanged}
+                />
+                <AddFantasyTeamForm
+                  leagues={data?.fantasyLeagues ?? []}
+                  players={data?.players ?? []}
+                  onAdded={onDepartmentsChanged}
+                />
+
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-end">
+                    <div className="flex-1">
+                      <Label htmlFor="fantasy-league-selector">League</Label>
+                      <ObjectSelect
+                        id="fantasy-league-selector"
+                        value={fantasyLeagueId ?? selectedFantasyLeague?.id ?? ''}
+                        onValueChange={(value) => {
+                          setFantasyLeagueId(value);
+                        }}
+                        options={(data?.fantasyLeagues ?? []).map((league) => ({
+                          id: league.id,
+                          label: league.name
+                        }))}
+                        placeholder="Select league"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="fantasy-user-selector">User</Label>
+                      <ObjectSelect
+                        id="fantasy-user-selector"
+                        value={fantasyMemberUserId}
+                        onValueChange={setFantasyMemberUserId}
+                        options={(data?.users ?? []).map((user) => ({
+                          id: user.id,
+                          label: `${user.name} (${user.id})`
+                        }))}
+                        placeholder="Choose member"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <Button type="button" disabled={fantasyBusy || selectedFantasyLeague === undefined} onClick={handleFantasyJoin}>
+                      Request join
+                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="fantasy-tournament-name">Fantasy tournament name</Label>
+                      <Input
+                        id="fantasy-tournament-name"
+                        value={fantasyTournamentName}
+                        onChange={(event) => {
+                          setFantasyTournamentName(event.target.value);
+                        }}
+                        placeholder="e.g. Final Round"
+                      />
+                    </div>
+                    <Button type="button" disabled={fantasyBusy || selectedFantasyLeague === undefined} onClick={handleFantasyCreateTournament}>
+                      Create tournament
+                    </Button>
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-end">
+                    <div className="flex-1">
+                      <Label htmlFor="fantasy-seed-name">Seed league name</Label>
+                      <Input
+                        id="fantasy-seed-name"
+                        value={fantasySeedName}
+                        onChange={(event) => {
+                          setFantasySeedName(event.target.value);
+                        }}
+                        placeholder="Optional league name"
+                      />
+                    </div>
+                    <Button type="button" variant="outline" disabled={fantasyBusy} onClick={handleSeedFantasyLeague}>
+                      Seed league + draft
+                    </Button>
+                  </div>
+
+                  {fantasyActionError !== undefined && (
+                    <p className="mt-3 text-sm text-destructive">{fantasyActionError}</p>
+                  )}
                 </div>
-                <div>
-                  <h3 className="mb-2 font-medium">Teams</h3>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Owner</TableHead>
-                        <TableHead>Roster</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data?.fantasyTeams.map((team) => (
-                        <TableRow key={team.id}>
-                          <TableCell>{team.id}</TableCell>
-                          <TableCell>{team.name}</TableCell>
-                          <TableCell>{team.ownerId}</TableCell>
-                          <TableCell>{team.playerIds.length}</TableCell>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <h3 className="mb-2 font-medium">Leagues</h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Participants</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {(data?.fantasyLeagues ?? []).map((league) => (
+                          <TableRow key={league.id}>
+                            <TableCell>{league.id}</TableCell>
+                            <TableCell>{league.name}</TableCell>
+                            <TableCell>{league.participantIds.length}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div>
+                    <h3 className="mb-2 font-medium">Teams</h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Owner</TableHead>
+                          <TableHead>Roster</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(data?.fantasyTeams ?? []).map((team) => (
+                          <TableRow key={team.id}>
+                            <TableCell>{team.id}</TableCell>
+                            <TableCell>{team.name}</TableCell>
+                            <TableCell>{team.ownerId}</TableCell>
+                            <TableCell>{team.playerIds.length}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <h3 className="mb-2 font-medium">Membership requests</h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>User</TableHead>
+                          <TableHead>League</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(data?.fantasyMemberships ?? []).map((membership) => (
+                          <TableRow key={membership.id}>
+                            <TableCell>{membership.userId}</TableCell>
+                            <TableCell>{membership.leagueId}</TableCell>
+                            <TableCell>
+                              <Badge variant={membership.state === 'approved' ? 'default' : 'secondary'}>
+                                {membership.state}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {membership.state !== 'approved' && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={fantasyBusy}
+                                  onClick={() => {
+                                    void handleFantasyApprove(membership.id, membership.leagueId);
+                                  }}
+                                >
+                                  Approve
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  <div>
+                    <h3 className="mb-2 font-medium">Fantasy tournaments</h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>League</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Draft</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(data?.fantasyTournaments ?? []).map((tournament) => (
+                          <TableRow key={tournament.id}>
+                            <TableCell>{tournament.name}</TableCell>
+                            <TableCell>{tournament.leagueId}</TableCell>
+                            <TableCell>
+                              <Badge variant={tournament.status === 'completed' ? 'default' : 'secondary'}>
+                                {tournament.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{tournament.draftRoomId ?? '—'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
               </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="drafts">
-            <DraftsBoard
-              drafts={data?.drafts ?? []}
-              leagues={data?.fantasyLeagues ?? []}
-              players={data?.players ?? []}
-              onChanged={onDepartmentsChanged}
-            />
-          </TabsContent>
-          <TabsContent value="departments">
-            <div className="flex flex-col gap-4">
-              <AddDepartmentForm onAdded={onDepartmentsChanged} />
+            )}
+
+            {activeSection === 'drafts' && (
+              <DraftsBoard
+                drafts={data?.drafts ?? []}
+                leagues={data?.fantasyLeagues ?? []}
+                players={data?.players ?? []}
+                onChanged={onDepartmentsChanged}
+              />
+            )}
+
+            {activeSection === 'departments' && (
+              <div className="flex flex-col gap-4">
+                <AddDepartmentForm onAdded={onDepartmentsChanged} />
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Head</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data?.departments.map((department) => (
+                      <TableRow key={department.id}>
+                        <TableCell>{department.id}</TableCell>
+                        <TableCell>{department.name}</TableCell>
+                        <TableCell>
+                          {(department.headName?.trim().length ?? 0) > 0
+                            ? department.headName
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {activeSection === 'projects' && (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
+                    <TableHead>Department</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Head</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data?.departments.map((department) => (
-                    <TableRow key={department.id}>
-                      <TableCell>{department.id}</TableCell>
-                      <TableCell>{department.name}</TableCell>
+                  {data?.projects.map((project) => (
+                    <TableRow key={project.id}>
+                      <TableCell>{project.id}</TableCell>
+                      <TableCell>{project.departmentId}</TableCell>
+                      <TableCell>{project.name}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+
+            {activeSection === 'claims' && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.claims.map((claim) => (
+                    <TableRow key={claim.id}>
+                      <TableCell>{claim.id}</TableCell>
+                      <TableCell>{claim.departmentId}</TableCell>
                       <TableCell>
-                        {(department.headName?.trim().length ?? 0) > 0
-                          ? department.headName
-                          : '—'}
+                        {(claim.totalMinorUnits / 100).toFixed(2)}{' '}
+                        {claim.currency}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{claim.status}</Badge>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </div>
-          </TabsContent>
-          <TabsContent value="projects">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Name</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.projects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell>{project.id}</TableCell>
-                    <TableCell>{project.departmentId}</TableCell>
-                    <TableCell>{project.name}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TabsContent>
-          <TabsContent value="claims">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.claims.map((claim) => (
-                  <TableRow key={claim.id}>
-                    <TableCell>{claim.id}</TableCell>
-                    <TableCell>{claim.departmentId}</TableCell>
-                    <TableCell>
-                      {(claim.totalMinorUnits / 100).toFixed(2)}{' '}
-                      {claim.currency}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{claim.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+            )}
+          </>
+        </main>
+      </div>
+    </div>
   );
 }

@@ -11,6 +11,9 @@
   "scripts": {
     "build": "tsc --noEmit",
     "dev": "concurrently -n api,web -c blue,green \"npm run dev --workspace=@flihub/api\" \"npm run dev --workspace=@flihub/web\"",
+    "mobile": "npm run start --workspace=@flihub/mobile",
+    "mobile:preview": "npm run preview --workspace=@flihub/mobile",
+    "mobile:preview:open": "npm run preview:open --workspace=@flihub/mobile",
     "test": "vitest run",
     "lint": "eslint .",
     "format": "prettier --write .",

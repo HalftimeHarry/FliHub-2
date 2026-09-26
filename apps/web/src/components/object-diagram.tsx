@@ -325,9 +325,13 @@ function FlowArrow({
 }
 
 const roleLabels: Record<UserDto['role'], string> = {
-  player: 'Player',
+  leader: 'Leader',
+  admin: 'Admin',
   business_staff: 'Business staff',
-  admin: 'Admin'
+  manager: 'Manager',
+  player: 'Player',
+  vendor: 'Vendor',
+  broadcaster: 'Broadcaster'
 };
 
 function ObjectBrowserGroup({

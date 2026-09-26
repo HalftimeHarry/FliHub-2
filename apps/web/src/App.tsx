@@ -1,4 +1,4 @@
-import { Building2, Trash2 } from 'lucide-react';
+import { Building2, Check, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AppNavbar, type AppView } from '@/components/app-navbar.js';
 import { Dashboard } from '@/components/dashboard.js';
@@ -159,81 +159,62 @@ function OrganizationOverview({
 
   return (
     <Card className="border-sky-500/30 bg-sky-500/10">
-      <CardHeader>
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Organization
-        </p>
-        <CardTitle className="flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-sky-500/15 text-sky-700 dark:text-sky-300">
-            <Building2 className="size-5" />
+      <CardHeader className="p-2.5">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="flex size-6 items-center justify-center rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300">
+            <Building2 className="size-3.5" />
           </span>
-          {organizationName}
-          <Badge variant="outline">Active organization</Badge>
-        </CardTitle>
-        <CardDescription>
-          The organization is the first boundary for your League and Business
-          workspace.
-        </CardDescription>
+          <span className="font-semibold">{organizationName}</span>
+          <Badge variant="outline" className="text-[10px] leading-none">
+            Active
+          </Badge>
+          <span className="text-muted-foreground">{organizationId}</span>
+          <span className="text-muted-foreground">•</span>
+          <span className="text-muted-foreground">{currentUser?.name ?? 'Loading'}</span>
+          <span className="text-muted-foreground">•</span>
+          <span className="text-muted-foreground">{userCount} users</span>
+        </div>
+        {(setup !== undefined || organization !== undefined) && (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            <Badge variant="outline" className="text-[10px] leading-none">
+              {setup?.templateName ?? 'Organization configuration'}
+            </Badge>
+            {(setup?.selectedComponents ?? organization?.enabledComponents ?? []).map(
+              (componentId) => (
+                <Badge
+                  key={componentId}
+                  variant="secondary"
+                  className="inline-flex items-center gap-1 text-[10px] leading-none"
+                >
+                  <Check className="size-3 text-emerald-500" />
+                  {selectedLabels.get(componentId) ?? componentId}
+                </Badge>
+              )
+            )}
+          </div>
+        )}
         {canDelete && (
           <Button
             type="button"
             variant="destructive"
             size="sm"
-            className="self-start"
+            className="self-start mt-1 h-7 px-2 text-xs"
             onClick={onDelete}
           >
-            <Trash2 />
-            Delete organization
+            <Trash2 className="mr-1 size-3.5" />
+            Delete
           </Button>
         )}
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg bg-background/60 p-3">
-          <p className="text-xs text-muted-foreground">Organization ID</p>
-          <p className="mt-1 font-medium">{organizationId}</p>
-        </div>
-        <div className="rounded-lg bg-background/60 p-3">
-          <p className="text-xs text-muted-foreground">Signed in as</p>
-          <p className="mt-1 font-medium">{currentUser?.name ?? 'Loading'}</p>
-        </div>
-        <div className="rounded-lg bg-background/60 p-3">
-          <p className="text-xs text-muted-foreground">Organization users</p>
-          <p className="mt-1 font-medium">{userCount.toString()}</p>
-        </div>
-      </CardContent>
-      {(setup !== undefined || organization !== undefined) && (
-        <CardContent className="border-t pt-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
-              {setup?.templateName ?? 'Organization configuration'}
-            </Badge>
-            {(
-              setup?.selectedComponents ??
-              organization?.enabledComponents ??
-              []
-            ).map((componentId) => (
-              <Badge key={componentId} variant="secondary">
-                {selectedLabels.get(componentId) ?? componentId}
-              </Badge>
-            ))}
-          </div>
-        </CardContent>
-      )}
       {setup !== undefined && setup.departments.length > 0 && (
-        <CardContent className="border-t pt-0">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Departments
-          </p>
-          <ul className="flex flex-col gap-2">
+        <CardContent className="border-t p-2 pt-2">
+          <ul className="flex flex-wrap gap-1.5">
             {setup.departments.map((department) => (
               <li
                 key={department.id}
-                className="flex items-center justify-between rounded-lg bg-background/60 px-4 py-2"
+                className="rounded-md bg-background/60 px-2 py-1 text-[10px] text-muted-foreground"
               >
-                <span className="font-medium">{department.name}</span>
-                <span className="text-sm text-muted-foreground">
-                  {department.headName.trim() || 'No head assigned'}
-                </span>
+                {department.name}
               </li>
             ))}
           </ul>
@@ -311,7 +292,7 @@ export function App() {
     <ThemeProvider defaultTheme="dark" storageKey="flihub-ui-theme">
       <div className="min-h-screen bg-muted/40">
         <AppNavbar activeView={activeView} onViewChange={setActiveView} />
-        <main className="mx-auto flex max-w-5xl flex-col gap-6 p-8">
+        <main className="flex w-full flex-col gap-4 p-0 md:gap-6 md:p-0">
           {activeView === 'start-guide' ? (
             <StartGuide
               organizations={organizations}
