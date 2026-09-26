@@ -5,6 +5,7 @@ import {
   registerCustomOrganization,
   seedTournamentGroupsAndAssignAllScorekeepers
 } from './api.js';
+import { sortProsForDisplay } from './player-table.js';
 
 const createStorage = () => {
   let map = new Map<string, string>();
@@ -63,6 +64,22 @@ describe('FLI Golf scorekeepers', () => {
       'scorekeeper-4',
       'scorekeeper-5',
       'scorekeeper-6'
+    ]);
+  });
+});
+
+describe('pro roster sort helper', () => {
+  it('sorts active professionals by team and then name for the modal table', () => {
+    const rows = [
+      { id: 'kat-mertsch', displayName: 'Kat Mertsch', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'simon-lizotte', displayName: 'Simon Lizotte', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'missy-gannon', displayName: 'Missy Gannon', teamName: 'Birdie Storm', playerType: 'professional', active: true, status: 'active' }
+    ] as const;
+
+    expect(sortProsForDisplay(rows, 'team')).toEqual([
+      { id: 'kat-mertsch', displayName: 'Kat Mertsch', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'simon-lizotte', displayName: 'Simon Lizotte', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'missy-gannon', displayName: 'Missy Gannon', teamName: 'Birdie Storm', playerType: 'professional', active: true, status: 'active' }
     ]);
   });
 });

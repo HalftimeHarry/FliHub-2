@@ -35,6 +35,7 @@ import {
   Season,
   Team,
   Tournament,
+  TournamentRegistration,
   TournamentTeeGroup
 } from '@flihub/league';
 
@@ -601,7 +602,68 @@ export const createLeagueRepositories = () => ({
       teamIds: ['disc-jesters', 'fairway-bombers']
     })
   ]),
-  registrations: new InMemoryTournamentRegistrationRepository()
+  registrations: new InMemoryTournamentRegistrationRepository([
+    TournamentRegistration.create({
+      tournamentId: 'sunset-open',
+      playerId: 'simon-lizotte',
+      registeredAt: new Date('2026-05-02T10:00:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'sunset-open',
+      playerId: 'kat-mertsch',
+      registeredAt: new Date('2026-05-02T10:15:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'sunset-open',
+      playerId: 'isaac-robinson',
+      registeredAt: new Date('2026-05-02T10:30:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'sunset-open',
+      playerId: 'missy-gannon',
+      registeredAt: new Date('2026-05-02T10:45:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'sunset-open',
+      playerId: 'paul-mcbeth',
+      registeredAt: new Date('2026-05-02T11:00:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'sunset-open',
+      playerId: 'holyn-handley',
+      registeredAt: new Date('2026-05-02T11:15:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'summer-championship',
+      playerId: 'anthony-barela',
+      registeredAt: new Date('2026-06-04T09:00:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'summer-championship',
+      playerId: 'hailey-king',
+      registeredAt: new Date('2026-06-04T09:20:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'summer-championship',
+      playerId: 'chris-dickerson',
+      registeredAt: new Date('2026-06-04T09:40:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'summer-championship',
+      playerId: 'paige-pierce',
+      registeredAt: new Date('2026-06-04T10:00:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'summer-championship',
+      playerId: 'kyle-klein',
+      registeredAt: new Date('2026-06-04T10:20:00.000Z')
+    }),
+    TournamentRegistration.create({
+      tournamentId: 'summer-championship',
+      playerId: 'silva-saarinen',
+      registeredAt: new Date('2026-06-04T10:40:00.000Z')
+    })
+  ])
 });
 
 export const createFantasyRepositories = () => ({

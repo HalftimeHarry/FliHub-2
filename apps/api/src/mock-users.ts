@@ -13,18 +13,18 @@ export interface MockUser {
 
 export const mockUsers: readonly MockUser[] = [
   {
-    id: 'player-1',
-    name: 'Alex Rivera',
+    id: 'simon-lizotte',
+    name: 'Simon Lizotte',
     organizationId: 'fgl',
     role: 'player',
-    playerId: 'player-1'
+    playerId: 'simon-lizotte'
   },
   {
-    id: 'player-2',
-    name: 'Jordan Blake',
+    id: 'kat-mertsch',
+    name: 'Kat Mertsch',
     organizationId: 'fgl',
     role: 'player',
-    playerId: 'player-2'
+    playerId: 'kat-mertsch'
   },
   {
     id: 'staff-1',

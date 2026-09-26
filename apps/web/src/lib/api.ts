@@ -583,18 +583,18 @@ export const addOrganizationDepartment = (
 
 const demoUsers: readonly UserDto[] = [
   {
-    id: 'player-1',
-    name: 'Alex Rivera',
+    id: 'simon-lizotte',
+    name: 'Simon Lizotte',
     organizationId: 'fgl',
     role: 'player',
-    playerId: 'player-1'
+    playerId: 'simon-lizotte'
   },
   {
-    id: 'player-2',
-    name: 'Jordan Blake',
+    id: 'kat-mertsch',
+    name: 'Kat Mertsch',
     organizationId: 'fgl',
     role: 'player',
-    playerId: 'player-2'
+    playerId: 'kat-mertsch'
   },
   {
     id: 'staff-1',
@@ -729,16 +729,20 @@ const demoOrganizations: OrganizationDto[] = [
 const demoData: Record<string, unknown> = {
   '/league/players': [
     {
-      id: 'player-1',
-      displayName: 'Alex Rivera',
+      id: 'simon-lizotte',
+      displayName: 'Simon Lizotte',
       active: true,
-      playerType: 'professional'
+      playerType: 'professional',
+      team: 'Ace Makers',
+      status: 'active'
     },
     {
-      id: 'player-2',
-      displayName: 'Jordan Blake',
+      id: 'kat-mertsch',
+      displayName: 'Kat Mertsch',
       active: true,
-      playerType: 'professional'
+      playerType: 'professional',
+      team: 'Ace Makers',
+      status: 'active'
     },
     {
       id: 'player-3',
@@ -855,15 +859,57 @@ const demoData: Record<string, unknown> = {
     { id: 'course-2-hole-17', courseId: 'course-2', number: 17, par: 3, name: 'Arizona Athletic Grounds Hole 17', distanceFeet: 335, blueBasket: false },
     { id: 'course-2-hole-18', courseId: 'course-2', number: 18, par: 3, name: 'Arizona Athletic Grounds Hole 18', distanceFeet: 425, blueBasket: false }
   ] satisfies readonly HoleDto[],
-  '/league/tournament-registrations':
-    [] satisfies readonly TournamentRegistrationDto[],
+  '/league/tournament-registrations': [
+    {
+      id: 'tournament-1:simon-lizotte',
+      tournamentId: 'tournament-1',
+      playerId: 'simon-lizotte',
+      registeredAt: '2026-05-02T10:00:00.000Z'
+    },
+    {
+      id: 'tournament-1:kat-mertsch',
+      tournamentId: 'tournament-1',
+      playerId: 'kat-mertsch',
+      registeredAt: '2026-05-02T10:15:00.000Z'
+    },
+    {
+      id: 'tournament-1:player-3',
+      tournamentId: 'tournament-1',
+      playerId: 'player-3',
+      registeredAt: '2026-05-02T10:30:00.000Z'
+    },
+    {
+      id: 'tournament-1:player-4',
+      tournamentId: 'tournament-1',
+      playerId: 'player-4',
+      registeredAt: '2026-05-02T10:45:00.000Z'
+    },
+    {
+      id: 'tournament-2:simon-lizotte',
+      tournamentId: 'tournament-2',
+      playerId: 'simon-lizotte',
+      registeredAt: '2026-06-04T09:00:00.000Z'
+    },
+    {
+      id: 'tournament-2:kat-mertsch',
+      tournamentId: 'tournament-2',
+      playerId: 'kat-mertsch',
+      registeredAt: '2026-06-04T09:20:00.000Z'
+    },
+    {
+      id: 'tournament-2:player-3',
+      tournamentId: 'tournament-2',
+      playerId: 'player-3',
+      registeredAt: '2026-06-04T09:40:00.000Z'
+    }
+  ] satisfies readonly TournamentRegistrationDto[],
   '/league/teams': [
     {
       id: 'team-1',
       organizationId: 'fgl',
-      name: 'Rivera & Blake',
-      malePlayerId: 'player-1',
-      femalePlayerId: 'player-2'
+      name: 'Ace Makers',
+      malePlayerId: 'simon-lizotte',
+      femalePlayerId: 'kat-mertsch'
     }
   ] satisfies readonly TeamDto[],
   '/fantasy/leagues': [
@@ -871,16 +917,16 @@ const demoData: Record<string, unknown> = {
       id: 'fantasy-league-1',
       organizationId: 'fgl',
       name: 'FLI Golf Fantasy',
-      participantIds: ['player-1', 'player-2']
+      participantIds: ['simon-lizotte', 'kat-mertsch']
     }
   ] satisfies readonly FantasyLeagueDto[],
   '/fantasy/teams': [
     {
       id: 'fantasy-team-1',
       fantasyLeagueId: 'fantasy-league-1',
-      ownerId: 'player-1',
-      name: "Rivera's Aces",
-      playerIds: ['player-3', 'player-4']
+      ownerId: 'simon-lizotte',
+      name: "Lizotte's Aces",
+      playerIds: ['simon-lizotte', 'kat-mertsch']
     }
   ] satisfies readonly FantasyTeamDto[],
   '/business/departments': [
@@ -906,7 +952,7 @@ const demoData: Record<string, unknown> = {
 };
 
 export const getOrganizationHeaders = (): Record<string, string> => ({
-  'x-user-id': window.localStorage.getItem(userStorageKey) ?? 'player-1'
+  'x-user-id': window.localStorage.getItem(userStorageKey) ?? 'simon-lizotte'
 });
 
 export const setActiveUser = (userId: string): void => {
