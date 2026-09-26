@@ -7,6 +7,7 @@ export class Season {
     public readonly id: Identifier,
     public readonly leagueId: Identifier,
     public readonly name: string,
+    public readonly brand: string,
     public readonly dateRange: DateRange,
     public readonly yearlyPurse: Money,
     public readonly status: SeasonStatus
@@ -16,6 +17,7 @@ export class Season {
     id: string;
     leagueId: string;
     name: string;
+    brand?: string;
     startsOn: Date;
     endsOn: Date;
     yearlyPurseMinorUnits?: number;
@@ -26,6 +28,7 @@ export class Season {
       Identifier.create(input.id, 'season id'),
       Identifier.create(input.leagueId, 'league id'),
       input.name.trim(),
+      (input.brand ?? input.name).trim() || input.name.trim(),
       DateRange.create({ startsOn: input.startsOn, endsOn: input.endsOn }),
       Money.fromMinorUnits(
         input.yearlyPurseMinorUnits ?? 0,

@@ -1,5 +1,6 @@
 export interface PlayerDto {
   readonly id: string;
+  readonly brand?: string;
   readonly displayName: string;
   readonly active: boolean;
   readonly playerType?: 'student' | 'professional';
@@ -12,6 +13,7 @@ export interface TeamDto {
   readonly id: string;
   readonly organizationId: string;
   readonly name: string;
+  readonly brand?: string;
   readonly malePlayerId: string;
   readonly femalePlayerId: string;
 }
@@ -20,6 +22,7 @@ export interface FantasyLeagueDto {
   readonly id: string;
   readonly organizationId: string;
   readonly name: string;
+  readonly brand?: string;
   readonly participantIds: readonly string[];
   readonly ownerUserId?: string;
   readonly requiredApprovedParticipants?: number;
@@ -80,6 +83,7 @@ export interface DraftRoomDto {
   readonly id: string;
   readonly fantasyLeagueId: string;
   readonly organizationId: string;
+  readonly brand?: string;
   readonly status: DraftStatus;
   readonly locked: boolean;
   readonly currentRound: number;
@@ -104,6 +108,7 @@ export interface TournamentDto {
   readonly id: string;
   readonly seasonId: string;
   readonly name: string;
+  readonly brand?: string;
   readonly type: 'fli' | 'multi-round';
   readonly scheduledOn?: string;
   readonly scoringHoleCount?: number;
@@ -149,6 +154,7 @@ export interface SeasonDto {
   readonly id: string;
   readonly leagueId: string;
   readonly name: string;
+  readonly brand?: string;
   readonly startsOn: string;
   readonly endsOn: string;
   readonly yearlyPurseMinorUnits: number;
@@ -160,12 +166,14 @@ export interface CourseDto {
   readonly id: string;
   readonly organizationId: string;
   readonly name: string;
+  readonly brand?: string;
   readonly holeCount: number;
 }
 
 export interface HoleDto {
   readonly id: string;
   readonly courseId: string;
+  readonly brand?: string;
   readonly number: number;
   readonly par: number;
   readonly name?: string;
@@ -178,6 +186,7 @@ export interface TournamentRegistrationDto {
   readonly id: string;
   readonly tournamentId: string;
   readonly playerId: string;
+  readonly brand?: string;
   readonly registeredAt: string;
 }
 
@@ -185,6 +194,7 @@ export interface DepartmentDto {
   readonly id: string;
   readonly organizationId: string;
   readonly name: string;
+  readonly brand?: string;
   readonly headName?: string;
 }
 
@@ -192,6 +202,7 @@ export interface ProjectDto {
   readonly id: string;
   readonly departmentId: string;
   readonly name: string;
+  readonly brand?: string;
 }
 
 export interface ReimbursementClaimDto {
@@ -201,6 +212,7 @@ export interface ReimbursementClaimDto {
   readonly projectId: string | undefined;
   readonly totalMinorUnits: number;
   readonly currency: string;
+  readonly brand?: string;
   readonly status: string;
 }
 
@@ -790,6 +802,7 @@ const demoData: Record<string, unknown> = {
       id: 'summer-season',
       leagueId: 'fgl-league',
       name: 'Summer Season',
+      brand: 'FLI Golf League',
       startsOn: '2026-05-01T00:00:00.000Z',
       endsOn: '2026-08-31T23:59:59.999Z',
       yearlyPurseMinorUnits: 400_000_000,
@@ -800,6 +813,7 @@ const demoData: Record<string, unknown> = {
       id: 'summer-2-season',
       leagueId: 'fgl-league',
       name: 'Summer 2 Season',
+      brand: 'FLI Golf League',
       startsOn: '2027-06-01T00:00:00.000Z',
       endsOn: '2027-08-31T23:59:59.999Z',
       yearlyPurseMinorUnits: 800_000_000,
@@ -908,6 +922,7 @@ const demoData: Record<string, unknown> = {
       id: 'team-1',
       organizationId: 'fgl',
       name: 'Ace Makers',
+      brand: 'Ace Makers',
       malePlayerId: 'simon-lizotte',
       femalePlayerId: 'kat-mertsch'
     }

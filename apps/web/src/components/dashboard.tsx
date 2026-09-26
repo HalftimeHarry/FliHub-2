@@ -125,10 +125,11 @@ interface DashboardData {
   readonly users: readonly UserDto[];
 }
 
-type PlayerSortKey = 'id' | 'displayName' | 'team' | 'playerType' | 'active';
+type PlayerSortKey = 'id' | 'displayName' | 'brand' | 'team' | 'playerType' | 'active';
 type TournamentSortKey =
   | 'id'
   | 'name'
+  | 'brand'
   | 'seasonId'
   | 'scheduledOn'
   | 'courseId'
@@ -246,6 +247,7 @@ function EditSeasonModal({
   readonly onSaved: () => void;
 }) {
   const [name, setName] = useState(season.name);
+  const [brand, setBrand] = useState(season.brand ?? season.name);
   const [startsOn, setStartsOn] = useState(season.startsOn.slice(0, 10));
   const [endsOn, setEndsOn] = useState(season.endsOn.slice(0, 10));
   const [yearlyPurse, setYearlyPurse] = useState(
@@ -262,6 +264,7 @@ function EditSeasonModal({
     try {
       await updateSeason(season.id, {
         name,
+        brand: brand.trim() || name,
         startsOn: new Date(`${startsOn}T00:00:00.000Z`).toISOString(),
         endsOn: new Date(`${endsOn}T23:59:59.999Z`).toISOString(),
         yearlyPurseMinorUnits: Math.round((Number(yearlyPurse) || 0) * 100),
@@ -308,6 +311,10 @@ function EditSeasonModal({
           <div className="flex flex-col gap-2">
             <Label htmlFor="edit-season-name">Name</Label>
             <Input id="edit-season-name" value={name} onChange={(event) => { setName(event.target.value); }} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="edit-season-brand">Brand</Label>
+            <Input id="edit-season-brand" value={brand} onChange={(event) => { setBrand(event.target.value); }} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
@@ -362,6 +369,7 @@ function NewSeasonModal({
   readonly onSaved: () => void;
 }) {
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
   const [startsOn, setStartsOn] = useState('');
   const [endsOn, setEndsOn] = useState('');
   const [yearlyPurse, setYearlyPurse] = useState('0');
@@ -376,6 +384,7 @@ function NewSeasonModal({
       await createSeason({
         leagueId,
         name,
+        brand: brand.trim() || name,
         startsOn: new Date(`${startsOn}T00:00:00.000Z`).toISOString(),
         endsOn: new Date(`${endsOn}T23:59:59.999Z`).toISOString(),
         yearlyPurseMinorUnits: Math.round((Number(yearlyPurse) || 0) * 100),
@@ -405,6 +414,10 @@ function NewSeasonModal({
           <div className="flex flex-col gap-2">
             <Label htmlFor="new-season-name">Name</Label>
             <Input id="new-season-name" placeholder="e.g. Fall Season" value={name} onChange={(event) => { setName(event.target.value); }} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="new-season-brand">Brand</Label>
+            <Input id="new-season-brand" placeholder="e.g. FLI Golf League" value={brand} onChange={(event) => { setBrand(event.target.value); }} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
@@ -1317,6 +1330,7 @@ function AddTeamForm({
   readonly onAdded?: () => void;
 }) {
   const [name, setName] = useState('');
+  const [brand, setBrand] = useState('');
   const [malePlayerId, setMalePlayerId] = useState('');
   const [femalePlayerId, setFemalePlayerId] = useState('');
   const [error, setError] = useState<string | undefined>(undefined);
@@ -1338,8 +1352,9 @@ function AddTeamForm({
     setSubmitting(true);
     setError(undefined);
     try {
-      await addTeam({ name, malePlayerId, femalePlayerId });
+      await addTeam({ name, brand: brand.trim() || name, malePlayerId, femalePlayerId });
       setName('');
+      setBrand('');
       setMalePlayerId('');
       setFemalePlayerId('');
       onAdded?.();
@@ -1368,6 +1383,17 @@ function AddTeamForm({
             value={name}
             onChange={(event) => {
               setName(event.target.value);
+            }}
+          />
+        </div>
+        <div className="flex flex-1 flex-col gap-2">
+          <Label htmlFor="new-team-brand">Brand</Label>
+          <Input
+            id="new-team-brand"
+            placeholder="e.g. Ace Makers"
+            value={brand}
+            onChange={(event) => {
+              setBrand(event.target.value);
             }}
           />
         </div>
@@ -2722,6 +2748,7 @@ export function Dashboard({
                     {[
                       ['id', 'ID'],
                       ['displayName', 'Name'],
+                      ['brand', 'Brand'],
                       ['team', 'Team'],
                       ['playerType', 'Type'],
                       ['active', 'Status']
@@ -2757,6 +2784,7 @@ export function Dashboard({
                     <TableRow key={player.id}>
                       <TableCell>{player.id}</TableCell>
                       <TableCell>{player.displayName}</TableCell>
+                      <TableCell>{player.brand ?? 'FLI Golf League'}</TableCell>
                       <TableCell>
                         {getPlayerTeamName(player.id, data?.teams ?? []) || '—'}
                       </TableCell>
@@ -2796,6 +2824,7 @@ export function Dashboard({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      <TableHead>Brand</TableHead>
                       <TableHead>League</TableHead>
                       <TableHead>Starts</TableHead>
                       <TableHead>Ends</TableHead>
@@ -2808,6 +2837,7 @@ export function Dashboard({
                     {data?.seasons.map((season) => (
                       <TableRow key={season.id}>
                         <TableCell>{season.name}</TableCell>
+                        <TableCell>{season.brand ?? season.name}</TableCell>
                         <TableCell>{season.leagueId}</TableCell>
                         <TableCell>{new Date(season.startsOn).toLocaleDateString()}</TableCell>
                         <TableCell>{new Date(season.endsOn).toLocaleDateString()}</TableCell>
@@ -2901,7 +2931,7 @@ export function Dashboard({
                   <TableHeader>
                     <TableRow>
                       <TableHead>ID</TableHead>
-                      <TableHead>Name</TableHead>
+                      <TableHead>Brand</TableHead>
                       <TableHead>Male player</TableHead>
                       <TableHead>Female player</TableHead>
                     </TableRow>
@@ -2910,7 +2940,7 @@ export function Dashboard({
                     {data?.teams.map((team) => (
                       <TableRow key={team.id}>
                         <TableCell>{team.id}</TableCell>
-                        <TableCell>{team.name}</TableCell>
+                        <TableCell>{team.brand ?? team.name}</TableCell>
                         <TableCell>{team.malePlayerId}</TableCell>
                         <TableCell>{team.femalePlayerId}</TableCell>
                       </TableRow>
@@ -2962,6 +2992,7 @@ export function Dashboard({
                       {[
                         ['id', 'ID'],
                         ['name', 'Name'],
+                        ['brand', 'Brand'],
                         ['scheduledOn', 'Date'],
                         ['courseId', 'Course'],
                         ['type', 'Type']
@@ -3009,6 +3040,7 @@ export function Dashboard({
                         </TableCell>
                         <TableCell>{tournament.id}</TableCell>
                         <TableCell>{tournament.name}</TableCell>
+                        <TableCell>{tournament.brand ?? 'FLI Golf League'}</TableCell>
                         <TableCell>
                           {tournament.scheduledOn === undefined
                             ? '—'
@@ -3101,6 +3133,7 @@ export function Dashboard({
                     <TableRow>
                       <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Brand</TableHead>
                       <TableHead>Holes</TableHead>
                       <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
                     </TableRow>
@@ -3115,6 +3148,7 @@ export function Dashboard({
                             <span className="text-xs text-muted-foreground">{course.id}</span>
                           </div>
                         </TableCell>
+                        <TableCell>{course.brand ?? 'FLI Golf League'}</TableCell>
                         <TableCell>{course.holeCount}</TableCell>
                         <TableCell>
                           <div className="flex items-center">
@@ -3208,6 +3242,7 @@ export function Dashboard({
                       </TableHead>
                       <TableHead>ID</TableHead>
                       <TableHead>Course</TableHead>
+                      <TableHead>Brand</TableHead>
                       <TableHead>Number</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Par</TableHead>
@@ -3231,6 +3266,7 @@ export function Dashboard({
                         </TableCell>
                         <TableCell>{hole.id}</TableCell>
                         <TableCell>{getCourseNameById(hole.courseId, data?.courses ?? [])}</TableCell>
+                        <TableCell>{hole.brand ?? 'FLI Golf League'}</TableCell>
                         <TableCell>{hole.number}</TableCell>
                         <TableCell>
                           <div className="flex flex-col">
@@ -3270,6 +3306,7 @@ export function Dashboard({
                   <TableRow>
                     <TableHead>Tournament</TableHead>
                     <TableHead>Player</TableHead>
+                    <TableHead>Brand</TableHead>
                     <TableHead>Registered at</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -3278,6 +3315,7 @@ export function Dashboard({
                     <TableRow key={registration.id}>
                       <TableCell>{registration.tournamentId}</TableCell>
                       <TableCell>{registration.playerId}</TableCell>
+                      <TableCell>{registration.brand ?? 'FLI Golf League'}</TableCell>
                       <TableCell>
                         {new Date(registration.registeredAt).toLocaleString()}
                       </TableCell>
@@ -3382,6 +3420,7 @@ export function Dashboard({
                         <TableRow>
                           <TableHead>ID</TableHead>
                           <TableHead>Name</TableHead>
+                          <TableHead>Brand</TableHead>
                           <TableHead>Participants</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -3390,6 +3429,7 @@ export function Dashboard({
                           <TableRow key={league.id}>
                             <TableCell>{league.id}</TableCell>
                             <TableCell>{league.name}</TableCell>
+                            <TableCell>{league.brand ?? 'FLI Golf League'}</TableCell>
                             <TableCell>{league.participantIds.length}</TableCell>
                           </TableRow>
                         ))}
@@ -3512,6 +3552,7 @@ export function Dashboard({
                     <TableRow>
                       <TableHead>ID</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Brand</TableHead>
                       <TableHead>Head</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -3520,6 +3561,7 @@ export function Dashboard({
                       <TableRow key={department.id}>
                         <TableCell>{department.id}</TableCell>
                         <TableCell>{department.name}</TableCell>
+                        <TableCell>{department.brand ?? 'FLI Golf League'}</TableCell>
                         <TableCell>
                           {(department.headName?.trim().length ?? 0) > 0
                             ? department.headName
@@ -3539,6 +3581,7 @@ export function Dashboard({
                     <TableHead>ID</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Name</TableHead>
+                    <TableHead>Brand</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3547,6 +3590,7 @@ export function Dashboard({
                       <TableCell>{project.id}</TableCell>
                       <TableCell>{project.departmentId}</TableCell>
                       <TableCell>{project.name}</TableCell>
+                      <TableCell>{project.brand ?? 'FLI Golf League'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -3560,6 +3604,7 @@ export function Dashboard({
                     <TableHead>ID</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead>Total</TableHead>
+                    <TableHead>Brand</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -3572,6 +3617,7 @@ export function Dashboard({
                         {(claim.totalMinorUnits / 100).toFixed(2)}{' '}
                         {claim.currency}
                       </TableCell>
+                      <TableCell>{claim.brand ?? 'FLI Golf League'}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{claim.status}</Badge>
                       </TableCell>

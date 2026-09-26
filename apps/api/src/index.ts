@@ -308,6 +308,7 @@ app.get('/league/seasons', (req: OrganizationRequest, res) => {
           id: season.id.value,
           leagueId: season.leagueId.value,
           name: season.name,
+          brand: season.brand,
           startsOn: season.dateRange.startsOn.toISOString(),
           endsOn: season.dateRange.endsOn.toISOString(),
           yearlyPurseMinorUnits: season.yearlyPurse.minorUnits,
@@ -325,6 +326,7 @@ app.post(
     const body = req.body as {
       leagueId?: string;
       name?: string;
+      brand?: string;
       startsOn?: string;
       endsOn?: string;
       yearlyPurseMinorUnits?: number;
@@ -360,6 +362,7 @@ app.post(
           id: `season-${(seasons.length + 1).toString()}`,
           leagueId: league.id.value,
           name: seasonName,
+          brand: body.brand,
           startsOn,
           endsOn,
           yearlyPurseMinorUnits: body.yearlyPurseMinorUnits,
@@ -367,7 +370,7 @@ app.post(
           status: body.status
         });
         await leagueRepositories.seasons.save(season);
-        res.status(201).json({ id: season.id.value, leagueId: season.leagueId.value, name: season.name, startsOn: season.dateRange.startsOn.toISOString(), endsOn: season.dateRange.endsOn.toISOString(), yearlyPurseMinorUnits: season.yearlyPurse.minorUnits, yearlyPurseCurrency: season.yearlyPurse.currency, status: season.status });
+        res.status(201).json({ id: season.id.value, leagueId: season.leagueId.value, name: season.name, brand: season.brand, startsOn: season.dateRange.startsOn.toISOString(), endsOn: season.dateRange.endsOn.toISOString(), yearlyPurseMinorUnits: season.yearlyPurse.minorUnits, yearlyPurseCurrency: season.yearlyPurse.currency, status: season.status });
       } catch (error) {
         res.status(400).json({ code: 'league.season.invalid_create', message: error instanceof Error ? error.message : 'Season creation failed.' });
       }
@@ -381,6 +384,7 @@ app.put(
   (req: OrganizationRequest, res) => {
     const body = req.body as {
       name?: string;
+      brand?: string;
       startsOn?: string;
       endsOn?: string;
       yearlyPurseMinorUnits?: number;
@@ -435,6 +439,7 @@ app.put(
           id: existing.id.value,
           leagueId: existing.leagueId.value,
           name: seasonName,
+          brand: body.brand,
           startsOn,
           endsOn,
           yearlyPurseMinorUnits: body.yearlyPurseMinorUnits,
@@ -446,6 +451,7 @@ app.put(
           id: season.id.value,
           leagueId: season.leagueId.value,
           name: season.name,
+          brand: season.brand,
           startsOn: season.dateRange.startsOn.toISOString(),
           endsOn: season.dateRange.endsOn.toISOString(),
           yearlyPurseMinorUnits: season.yearlyPurse.minorUnits,
@@ -501,6 +507,7 @@ app.get('/league/teams', (req: OrganizationRequest, res) => {
           id: team.id.value,
           organizationId: team.organizationId.value,
           name: team.name,
+          brand: team.brand,
           malePlayerId: team.malePlayerId.value,
           femalePlayerId: team.femalePlayerId.value
         }))
@@ -514,6 +521,7 @@ app.post(
   (req: OrganizationRequest, res) => {
     const body = req.body as {
       name?: string;
+      brand?: string;
       malePlayerId?: string;
       femalePlayerId?: string;
     };
@@ -589,6 +597,7 @@ app.post(
         id,
         organizationId: req.organizationId,
         name: body.name ?? '',
+        brand: body.brand,
         malePlayerId,
         femalePlayerId
       });
@@ -598,6 +607,7 @@ app.post(
         id: team.id.value,
         organizationId: team.organizationId.value,
         name: team.name,
+        brand: team.brand,
         malePlayerId: team.malePlayerId.value,
         femalePlayerId: team.femalePlayerId.value
       });

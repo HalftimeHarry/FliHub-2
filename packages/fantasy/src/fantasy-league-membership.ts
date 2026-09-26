@@ -29,7 +29,7 @@ export class FantasyLeagueMembership {
     requestedAt: string | Date;
     reviewedAt?: string | Date;
     reviewedByUserId?: string;
-    note?: string;
+    note?: string | undefined;
   }): FantasyLeagueMembership {
     const state = input.state ?? 'pending';
     const role = input.role ?? 'participant';

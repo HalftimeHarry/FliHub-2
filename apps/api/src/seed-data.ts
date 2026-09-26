@@ -167,6 +167,7 @@ export const createLeagueRepositories = () => ({
       id: 'summer-season',
       leagueId: 'fgl-league',
       name: 'Summer Season',
+      brand: 'FLI Golf League',
       startsOn: new Date('2026-05-01T00:00:00.000Z'),
       endsOn: new Date('2026-08-31T23:59:59.999Z'),
       yearlyPurseMinorUnits: 400_000_000,
@@ -176,6 +177,7 @@ export const createLeagueRepositories = () => ({
       id: 'summer-2-season',
       leagueId: 'fgl-league',
       name: 'Summer 2 Season',
+      brand: 'FLI Golf League',
       startsOn: new Date('2027-06-01T00:00:00.000Z'),
       endsOn: new Date('2027-08-31T23:59:59.999Z'),
       yearlyPurseMinorUnits: 800_000_000,
@@ -372,6 +374,7 @@ export const createLeagueRepositories = () => ({
       id: 'ace-makers',
       organizationId: 'fgl',
       name: 'Ace Makers',
+      brand: 'Ace Makers',
       malePlayerId: 'simon-lizotte',
       femalePlayerId: 'kat-mertsch'
     }),
