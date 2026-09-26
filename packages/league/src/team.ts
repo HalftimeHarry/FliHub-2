@@ -11,6 +11,7 @@ export class Team {
     public readonly id: Identifier,
     public readonly organizationId: Identifier,
     public readonly name: string,
+    public readonly brand: string,
     public readonly malePlayerId: Identifier,
     public readonly femalePlayerId: Identifier
   ) {}
@@ -19,10 +20,12 @@ export class Team {
     id: string;
     organizationId: string;
     name: string;
+    brand?: string;
     malePlayerId: string;
     femalePlayerId: string;
   }): Team {
     const name = input.name.trim();
+    const brand = (input.brand ?? name).trim() || name;
 
     if (name.length < 2) {
       throw new DomainError(
@@ -42,6 +45,7 @@ export class Team {
       Identifier.create(input.id, 'team id'),
       Identifier.create(input.organizationId, 'organization id'),
       name,
+      brand,
       Identifier.create(input.malePlayerId, 'male player id'),
       Identifier.create(input.femalePlayerId, 'female player id')
     );

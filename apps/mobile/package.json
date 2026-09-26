@@ -1,0 +1,31 @@
+{
+  "name": "@flihub/mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo/AppEntry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web --port 8083",
+    "preview": "expo start --web --port 8083",
+    "preview:open": "bash ./open-preview.sh"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~5.0.5",
+    "@expo/vector-icons": "^14.1.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@types/react": "19.2.0",
+    "expo": "~53.0.0",
+    "expo-router": "~5.0.0",
+    "expo-status-bar": "~2.2.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "0.79.2",
+    "react-native-web": "^0.20.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

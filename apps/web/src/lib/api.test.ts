@@ -5,6 +5,7 @@ import {
   registerCustomOrganization,
   seedTournamentGroupsAndAssignAllScorekeepers
 } from './api.js';
+import { sortProsForDisplay } from './player-table.js';
 
 const createStorage = () => {
   let map = new Map<string, string>();
@@ -67,6 +68,22 @@ describe('FLI Golf scorekeepers', () => {
   });
 });
 
+describe('pro roster sort helper', () => {
+  it('sorts active professionals by team and then name for the modal table', () => {
+    const rows = [
+      { id: 'kat-mertsch', displayName: 'Kat Mertsch', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'simon-lizotte', displayName: 'Simon Lizotte', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'missy-gannon', displayName: 'Missy Gannon', teamName: 'Birdie Storm', playerType: 'professional', active: true, status: 'active' }
+    ] as const;
+
+    expect(sortProsForDisplay(rows, 'team')).toEqual([
+      { id: 'kat-mertsch', displayName: 'Kat Mertsch', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'simon-lizotte', displayName: 'Simon Lizotte', teamName: 'Ace Makers', playerType: 'professional', active: true, status: 'active' },
+      { id: 'missy-gannon', displayName: 'Missy Gannon', teamName: 'Birdie Storm', playerType: 'professional', active: true, status: 'active' }
+    ]);
+  });
+});
+
 describe('tournament setup workflow', () => {
   it('seeds groups before assigning all scorekeepers for a tournament', async () => {
     const calls: string[] = [];
@@ -74,9 +91,11 @@ describe('tournament setup workflow', () => {
     const groups = await seedTournamentGroupsAndAssignAllScorekeepers('tournament-1', {
       seedTournamentTeeGroups: async (tournamentId: string) => {
         calls.push(`seed:${tournamentId}`);
+        return { tournamentId, created: 1 };
       },
       assignAllTournamentTeeGroupScorekeepers: async (tournamentId: string) => {
         calls.push(`assign:${tournamentId}`);
+        return { assigned: 1 };
       },
       fetchTournamentTeeGroups: async (tournamentId: string) => {
         calls.push(`fetch:${tournamentId}`);

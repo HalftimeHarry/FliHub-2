@@ -9,8 +9,7 @@ export class Hole {
     public readonly name: string | undefined,
     public readonly description: string | undefined,
     public readonly distanceFeet: number | undefined,
-    public readonly blueBasketPosition: string | undefined,
-    public readonly redBasketPosition: string | undefined
+    public readonly blueBasket: boolean
   ) {}
 
   public static create(input: {
@@ -21,8 +20,7 @@ export class Hole {
     name?: string;
     description?: string;
     distanceFeet?: number;
-    blueBasketPosition?: string;
-    redBasketPosition?: string;
+    blueBasket?: boolean;
   }): Hole {
     if (!Number.isInteger(input.number) || input.number < 1) {
       throw new DomainError(
@@ -62,13 +60,7 @@ export class Hole {
         ? undefined
         : input.description.trim(),
       input.distanceFeet,
-      input.blueBasketPosition === undefined ||
-      input.blueBasketPosition.trim() === ''
-        ? undefined
-        : input.blueBasketPosition.trim(),
-      input.redBasketPosition === undefined || input.redBasketPosition.trim() === ''
-        ? undefined
-        : input.redBasketPosition.trim()
+      input.blueBasket ?? input.number <= 9
     );
   }
 }

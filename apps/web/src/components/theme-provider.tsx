@@ -44,16 +44,15 @@ export function ThemeProvider({
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
 
-    if (theme === 'system') {
-      root.classList.add(
-        window.matchMedia('(prefers-color-scheme: dark)').matches
+    const resolvedTheme =
+      theme === 'system'
+        ? window.matchMedia('(prefers-color-scheme: dark)').matches
           ? 'dark'
           : 'light'
-      );
-      return;
-    }
+        : theme;
 
-    root.classList.add(theme);
+    root.classList.add(resolvedTheme);
+    root.style.colorScheme = resolvedTheme;
   }, [theme]);
 
   const setTheme = (nextTheme: Theme) => {

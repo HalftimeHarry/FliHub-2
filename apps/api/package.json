@@ -5,9 +5,9 @@
   "private": true,
   "description": "Minimal HTTP API exposing FLIHub domain workflows for local development.",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "HOST=0.0.0.0 PORT=3000 tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "HOST=0.0.0.0 PORT=3000 node dist/index.js"
   },
   "dependencies": {
     "@flihub/business": "*",

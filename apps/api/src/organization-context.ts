@@ -2,6 +2,14 @@ import type { NextFunction, Request, Response } from 'express';
 import { hasPermission, type Action, type Scope, type UserRole } from '@flihub/core';
 import type { MockUser } from './mock-users.js';
 
+declare module 'express-serve-static-core' {
+  interface Request {
+    organizationId: string;
+    userId: string;
+    userRole: UserRole;
+  }
+}
+
 export interface OrganizationRequest extends Request {
   readonly organizationId: string;
   readonly userId: string;

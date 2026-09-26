@@ -22,6 +22,7 @@ export class DraftRoom {
   private constructor(
     public readonly id: Identifier,
     public readonly fantasyLeagueId: Identifier,
+    public readonly fantasyTournamentId: Identifier,
     public readonly organizationId: Identifier,
     public readonly order: readonly Identifier[],
     public readonly pool: readonly DraftPoolPlayer[],
@@ -35,6 +36,7 @@ export class DraftRoom {
   public static create(input: {
     id: string;
     fantasyLeagueId: string;
+    fantasyTournamentId: string;
     organizationId: string;
     order: readonly string[];
     pool: readonly { id: string; gender: 'male' | 'female' }[];
@@ -95,6 +97,7 @@ export class DraftRoom {
     return new DraftRoom(
       Identifier.create(input.id, 'draft id'),
       Identifier.create(input.fantasyLeagueId, 'fantasy league id'),
+      Identifier.create(input.fantasyTournamentId, 'fantasy tournament id'),
       Identifier.create(input.organizationId, 'organization id'),
       order,
       pool,
