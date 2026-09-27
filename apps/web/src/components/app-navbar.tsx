@@ -24,7 +24,7 @@ export function AppNavbar({
             aria-current={activeView === 'home' ? 'page' : undefined}
             className="rounded-full px-3 font-semibold"
           >
-            FLIHub
+            Admin
           </Button>
           <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1 dark:border-slate-800 dark:bg-slate-900">
             <Button
@@ -37,7 +37,7 @@ export function AppNavbar({
               className="rounded-full"
             >
               <Compass className="mr-1.5 size-3.5" />
-              Landing Page
+              Organizations
             </Button>
             <Button
               variant={activeView === 'diagram' ? 'secondary' : 'ghost'}
@@ -73,7 +73,7 @@ export function AppNavbar({
               className="rounded-full"
             >
               <Rocket className="mr-1.5 size-3.5" />
-              Start Guide
+              Create Organization
             </Button>
           </div>
         </div>
