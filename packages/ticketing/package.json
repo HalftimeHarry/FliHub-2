@@ -1,0 +1,8 @@
+{
+  "name": "@flihub/ticketing",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "FLIHub Ticketing domain boundary placeholder.",
+  "exports": "./src/index.ts"
+}

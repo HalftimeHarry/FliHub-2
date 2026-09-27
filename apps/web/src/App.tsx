@@ -179,10 +179,14 @@ function OrganizationSwitcher({
 function LandingPage({
   currentUser,
   organizationId,
+  organizations,
+  onOrganizationChange,
   organizationUsers
 }: {
   readonly currentUser: UserDto | undefined;
   readonly organizationId: string;
+  readonly organizations: readonly OrganizationDto[];
+  readonly onOrganizationChange: (organizationId: string) => void;
   readonly organizationUsers: readonly UserDto[];
 }) {
   const [loading, setLoading] = useState(true);
@@ -385,9 +389,36 @@ function LandingPage({
               </Badge>
 
               <div className="mt-4 space-y-3">
+                <div className="max-w-xs space-y-1.5">
+                  <Label
+                    htmlFor="landing-organization-switcher"
+                    className="text-xs text-muted-foreground"
+                  >
+                    Organizations
+                  </Label>
+                  <Select
+                    value={organizationId}
+                    onValueChange={onOrganizationChange}
+                  >
+                    <SelectTrigger
+                      id="landing-organization-switcher"
+                      className="w-full bg-white/80 dark:bg-slate-900/80"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((organization) => (
+                        <SelectItem key={organization.id} value={organization.id}>
+                          {organization.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-600 dark:text-slate-300">
                   <span className="inline-flex rounded-full border border-slate-300 bg-white/80 px-2 py-1 text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200">
-                    FLI Golf • {currentSeason ? currentSeason.name : 'Season preview'}
+                    {organizations.find((organization) => organization.id === organizationId)?.name ?? 'FLI Golf'}{' '}
+                    • {currentSeason ? currentSeason.name : 'Season preview'}
                   </span>
                 </p>
                 <h2 className="max-w-xl text-4xl font-semibold tracking-[-0.06em] text-slate-900 dark:text-white sm:text-5xl lg:text-[4rem]">
@@ -1595,6 +1626,21 @@ export function App() {
     setRefreshKey((key) => key + 1);
   };
 
+  const handleOrganizationChange = (nextOrganizationId: string) => {
+    setActiveOrganization(nextOrganizationId);
+    setSelectedOrganizationId(nextOrganizationId);
+    const matchingUser = users.find(
+      (user) => user.organizationId === nextOrganizationId
+    );
+    if (matchingUser !== undefined) {
+      setActiveUser(matchingUser.id);
+      setCurrentUserId(matchingUser.id);
+    } else {
+      setCurrentUserId(undefined);
+    }
+    setRefreshKey((key) => key + 1);
+  };
+
   const currentUser = users.find((user) => user.id === currentUserId);
   const organizationId = selectedOrganizationId;
 
@@ -1607,6 +1653,8 @@ export function App() {
             <LandingPage
               currentUser={currentUser}
               organizationId={organizationId}
+              organizations={organizations}
+              onOrganizationChange={handleOrganizationChange}
               organizationUsers={users.filter(
                 (user) => user.organizationId === organizationId
               )}
@@ -1668,20 +1716,7 @@ export function App() {
                   <OrganizationSwitcher
                     organizations={organizations}
                     selectedOrganizationId={organizationId}
-                    onChange={(nextOrganizationId) => {
-                      setActiveOrganization(nextOrganizationId);
-                      setSelectedOrganizationId(nextOrganizationId);
-                      const matchingUser = users.find(
-                        (user) => user.organizationId === nextOrganizationId
-                      );
-                      if (matchingUser !== undefined) {
-                        setActiveUser(matchingUser.id);
-                        setCurrentUserId(matchingUser.id);
-                      } else {
-                        setCurrentUserId(undefined);
-                      }
-                      setRefreshKey((key) => key + 1);
-                    }}
+                    onChange={handleOrganizationChange}
                   />
                   <UserSwitcher
                     users={users.filter(
