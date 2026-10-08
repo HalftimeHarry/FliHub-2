@@ -162,6 +162,138 @@ export interface SeasonDto {
   readonly status: 'current' | 'upcoming' | 'completed';
 }
 
+export interface SponsorshipTierDto {
+  readonly id: string;
+  readonly name: string;
+  readonly shortName: string;
+  readonly minAmount: number;
+  readonly maxAmount: number | null;
+  readonly benefits: readonly string[];
+}
+
+export interface SponsorDto {
+  readonly id: string;
+  readonly name: string;
+  readonly brandName: string;
+  readonly category: string;
+  readonly logoUrl?: string;
+  readonly status: 'active' | 'lead' | 'proposal' | 'inactive';
+}
+
+export interface SponsorshipDealDto {
+  readonly id: string;
+  readonly sponsorId: string;
+  readonly targetType: 'season' | 'tournament';
+  readonly targetId: string;
+  readonly tierId: string;
+  readonly status: 'lead' | 'proposal' | 'active' | 'paid';
+  readonly contractValue: number;
+  readonly isTitleSponsor?: boolean;
+}
+
+export const formatDateOnlyUtc = (value: string): string =>
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(new Date(value));
+
+export const formatDateInputValueUtc = (value: string): string => {
+  const date = new Date(value);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+export type TitleSponsorStatus =
+  | 'confirmed'
+  | 'prospective'
+  | 'not-assigned'
+  | 'conflict';
+
+export interface TitleSponsorResolution {
+  readonly status: TitleSponsorStatus;
+  readonly label: string;
+  readonly sponsor?: SponsorDto;
+  readonly deal?: SponsorshipDealDto;
+  readonly deals: readonly SponsorshipDealDto[];
+}
+
+export const resolveTitleSponsorForTarget = ({
+  targetType,
+  targetId,
+  sponsors,
+  deals
+}: {
+  readonly targetType: 'season' | 'tournament';
+  readonly targetId: string;
+  readonly sponsors: readonly SponsorDto[];
+  readonly deals: readonly SponsorshipDealDto[];
+}): TitleSponsorResolution => {
+  const titleDeals = deals.filter(
+    (deal) =>
+      deal.targetType === targetType &&
+      deal.targetId === targetId &&
+      deal.isTitleSponsor === true
+  );
+
+  if (titleDeals.length === 0) {
+    return {
+      status: 'not-assigned',
+      label: 'Not assigned',
+      deals: []
+    };
+  }
+
+  const confirmedDeals = titleDeals.filter(
+    (deal) => deal.status === 'active' || deal.status === 'paid'
+  );
+
+  if (confirmedDeals.length > 1) {
+    return {
+      status: 'conflict',
+      label: 'Title sponsor conflict',
+      deals: confirmedDeals
+    };
+  }
+
+  if (confirmedDeals.length === 1) {
+    const sponsor = sponsors.find((candidate) => candidate.id === confirmedDeals[0]?.sponsorId);
+
+    return {
+      status: 'confirmed',
+      label: 'Title sponsor',
+      sponsor,
+      deal: confirmedDeals[0],
+      deals: confirmedDeals
+    };
+  }
+
+  const prospectiveDeals = titleDeals.filter(
+    (deal) => deal.status === 'lead' || deal.status === 'proposal'
+  );
+
+  if (prospectiveDeals.length > 0) {
+    const sponsor = sponsors.find((candidate) => candidate.id === prospectiveDeals[0]?.sponsorId);
+
+    return {
+      status: 'prospective',
+      label: 'Prospective title sponsor',
+      sponsor,
+      deal: prospectiveDeals[0],
+      deals: prospectiveDeals
+    };
+  }
+
+  return {
+    status: 'not-assigned',
+    label: 'Not assigned',
+    deals: titleDeals
+  };
+};
+
 export interface CourseDto {
   readonly id: string;
   readonly organizationId: string;
@@ -738,6 +870,410 @@ const demoOrganizations: OrganizationDto[] = [
   }
 ];
 
+const demoSeasonResetStorageKey = 'flihub-demo-season-sponsor-reset';
+const demoSeasonsStorageKey = 'flihub-demo-seasons';
+const demoSponsorshipTiersStorageKey = 'flihub-demo-sponsorship-tiers';
+const demoSponsorsStorageKey = 'flihub-demo-sponsors';
+const demoSponsorshipDealsStorageKey = 'flihub-demo-sponsorship-deals';
+
+const getPersistedDemoCollection = <Value>(
+  key: string,
+  fallback: readonly Value[]
+): readonly Value[] => {
+  const storage = getStorage();
+  if (storage === undefined) {
+    return fallback;
+  }
+
+  try {
+    const rawValue = storage.getItem(key);
+    if (rawValue === null) {
+      return fallback;
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    return Array.isArray(parsedValue) ? (parsedValue as Value[]) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const defaultSeasonSeed: readonly SeasonDto[] = [
+  {
+    id: 'summer-2027',
+    leagueId: 'fgl-league',
+    name: 'Summer Season',
+    brand: 'FLI Golf League',
+    startsOn: '2027-05-31T00:00:00.000Z',
+    endsOn: '2027-08-31T23:59:59.999Z',
+    yearlyPurseMinorUnits: 400_000_000,
+    yearlyPurseCurrency: 'USD',
+    status: 'current'
+  },
+  {
+    id: 'fall-2027',
+    leagueId: 'fgl-league',
+    name: 'Fall Season',
+    brand: 'FLI Golf League',
+    startsOn: '2027-09-12T00:00:00.000Z',
+    endsOn: '2027-12-13T23:59:59.999Z',
+    yearlyPurseMinorUnits: 800_000_000,
+    yearlyPurseCurrency: 'USD',
+    status: 'upcoming'
+  }
+];
+
+const defaultSponsorshipTierSeed: readonly SponsorshipTierDto[] = [
+  {
+    id: 'tier-title',
+    name: 'Title Sponsor',
+    shortName: 'Title',
+    minAmount: 1_000_000,
+    maxAmount: null,
+    benefits: ['Primary league branding', 'Presenting sponsor recognition', 'VIP hospitality access']
+  },
+  {
+    id: 'tier-major',
+    name: 'Major Sponsor',
+    shortName: 'Major',
+    minAmount: 100_000,
+    maxAmount: 999_999,
+    benefits: ['Season visibility', 'Featured brand placement', 'Event activation rights']
+  },
+  {
+    id: 'tier-gold',
+    name: 'Gold',
+    shortName: 'Gold',
+    minAmount: 10_000,
+    maxAmount: 99_999,
+    benefits: ['Tournament signage', 'Digital sponsor recognition', 'Activation area inclusion']
+  }
+];
+
+const defaultSponsorSeed: readonly SponsorDto[] = [
+  {
+    id: 'sponsor-young-america-capital',
+    name: 'Young America Capital',
+    brandName: 'Young America Capital',
+    category: 'Capital',
+    logoUrl: '/brand/sponsors/summit-capital/full-logo.svg',
+    status: 'active'
+  },
+  {
+    id: 'sponsor-sccg-management',
+    name: 'SCCG Management',
+    brandName: 'SCCG Management',
+    category: 'Management',
+    logoUrl: '/brand/sponsors/harbor-financial/full-logo.svg',
+    status: 'active'
+  },
+  {
+    id: 'sponsor-neology',
+    name: 'Neology',
+    brandName: 'Neology',
+    category: 'Technology',
+    logoUrl: '/brand/sponsors/greenline-logistics/full-logo.svg',
+    status: 'active'
+  },
+  {
+    id: 'sponsor-go-throw',
+    name: 'Go Throw',
+    brandName: 'Go Throw',
+    category: 'Touring',
+    logoUrl: '/brand/sponsors/northstar-bank/full-logo.svg',
+    status: 'active'
+  },
+  {
+    id: 'sponsor-coghlan-technology-group',
+    name: 'Coghlan Technology Group',
+    brandName: 'Coghlan Technology Group',
+    category: 'Technology',
+    logoUrl: '/brand/sponsors/coastal-energy/full-logo.svg',
+    status: 'active'
+  },
+  {
+    id: 'sponsor-americas-mobile',
+    name: 'Americas Mobile',
+    brandName: 'Americas Mobile',
+    category: 'Telecom',
+    status: 'active'
+  },
+  {
+    id: 'sponsor-pure-mobile-productions',
+    name: 'Pure Mobile Productions',
+    brandName: 'Pure Mobile Productions',
+    category: 'Media',
+    status: 'active'
+  },
+  {
+    id: 'sponsor-smart-boost',
+    name: 'Smart Boost',
+    brandName: 'Smart Boost',
+    category: 'Technology',
+    status: 'active'
+  }
+];
+
+const defaultSponsorshipDealSeed: readonly SponsorshipDealDto[] = [
+  {
+    id: 'deal-summer-2027-title',
+    sponsorId: 'sponsor-young-america-capital',
+    targetType: 'season',
+    targetId: 'summer-2027',
+    tierId: 'tier-title',
+    status: 'active',
+    contractValue: 1_000_000,
+    isTitleSponsor: true
+  },
+  {
+    id: 'deal-summer-2027-major',
+    sponsorId: 'sponsor-neology',
+    targetType: 'season',
+    targetId: 'summer-2027',
+    tierId: 'tier-major',
+    status: 'active',
+    contractValue: 250_000
+  },
+  {
+    id: 'deal-summer-2027-gold',
+    sponsorId: 'sponsor-go-throw',
+    targetType: 'season',
+    targetId: 'summer-2027',
+    tierId: 'tier-gold',
+    status: 'active',
+    contractValue: 45_000
+  },
+  {
+    id: 'deal-fall-2027-title',
+    sponsorId: 'sponsor-sccg-management',
+    targetType: 'season',
+    targetId: 'fall-2027',
+    tierId: 'tier-title',
+    status: 'proposal',
+    contractValue: 1_000_000,
+    isTitleSponsor: true
+  },
+  {
+    id: 'deal-fall-2027-major',
+    sponsorId: 'sponsor-coghlan-technology-group',
+    targetType: 'season',
+    targetId: 'fall-2027',
+    tierId: 'tier-major',
+    status: 'lead',
+    contractValue: 300_000
+  },
+  {
+    id: 'deal-fall-2027-mobile',
+    sponsorId: 'sponsor-americas-mobile',
+    targetType: 'season',
+    targetId: 'fall-2027',
+    tierId: 'tier-gold',
+    status: 'active',
+    contractValue: 35_000
+  },
+  {
+    id: 'deal-fall-2027-media',
+    sponsorId: 'sponsor-pure-mobile-productions',
+    targetType: 'season',
+    targetId: 'fall-2027',
+    tierId: 'tier-gold',
+    status: 'active',
+    contractValue: 25_000
+  },
+  {
+    id: 'deal-summer-2027-smart-boost',
+    sponsorId: 'sponsor-smart-boost',
+    targetType: 'season',
+    targetId: 'summer-2027',
+    tierId: 'tier-gold',
+    status: 'active',
+    contractValue: 20_000
+  }
+];
+
+const readPersistedDemoArray = <Value>(
+  key: string,
+  fallback: readonly Value[],
+  storage: Storage | undefined = getStorage()
+): readonly Value[] => {
+  if (storage === undefined) {
+    return fallback;
+  }
+
+  try {
+    const rawValue = storage.getItem(key);
+    if (rawValue === null) {
+      return fallback;
+    }
+
+    const parsedValue = JSON.parse(rawValue) as unknown;
+    return Array.isArray(parsedValue) ? (parsedValue as Value[]) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+export const resetDemoSeasonAndSponsorData = (
+  storage: Storage | undefined = getStorage()
+): {
+  readonly seasons: readonly SeasonDto[];
+  readonly tiers: readonly SponsorshipTierDto[];
+  readonly sponsors: readonly SponsorDto[];
+  readonly deals: readonly SponsorshipDealDto[];
+} => {
+  const nextSeasons = [...defaultSeasonSeed];
+  const nextTiers = [...defaultSponsorshipTierSeed];
+  const nextSponsors = [...defaultSponsorSeed];
+  const nextDeals = [...defaultSponsorshipDealSeed];
+
+  if (storage !== undefined) {
+    storage.setItem(demoSeasonsStorageKey, JSON.stringify(nextSeasons));
+    storage.setItem(demoSponsorshipTiersStorageKey, JSON.stringify(nextTiers));
+    storage.setItem(demoSponsorsStorageKey, JSON.stringify(nextSponsors));
+    storage.setItem(demoSponsorshipDealsStorageKey, JSON.stringify(nextDeals));
+    storage.setItem(
+      demoSeasonResetStorageKey,
+      JSON.stringify({ refreshedAt: new Date().toISOString() })
+    );
+  }
+
+  demoData['/league/seasons'] = nextSeasons;
+  demoData['/sponsorship/tiers'] = nextTiers;
+  demoData['/sponsorship/sponsors'] = nextSponsors;
+  demoData['/sponsorship/deals'] = nextDeals;
+
+  return {
+    seasons: nextSeasons,
+    tiers: nextTiers,
+    sponsors: nextSponsors,
+    deals: nextDeals
+  };
+};
+
+
+const defaultTournamentSeedForDemo: readonly TournamentDto[] = [
+  {
+    id: 'sunset-open',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • June 2 at Turf Paradise',
+    type: 'fli',
+    scheduledOn: '2027-06-02T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-2027-turf-06-16',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • June 16 at Turf Paradise',
+    type: 'fli',
+    scheduledOn: '2027-06-16T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-2027-turf-06-30',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • June 30 at Turf Paradise',
+    type: 'fli',
+    scheduledOn: '2027-06-30T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-2027-az-07-14',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • July 14 at Arizona Athletic Grounds',
+    type: 'fli',
+    scheduledOn: '2027-07-14T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-2'
+  },
+  {
+    id: 'summer-2027-az-07-28',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • July 28 at Arizona Athletic Grounds',
+    type: 'fli',
+    scheduledOn: '2027-07-28T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-2'
+  },
+  {
+    id: 'summer-championship',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • August 11 at Arizona Athletic Grounds',
+    type: 'fli',
+    scheduledOn: '2027-08-11T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-2'
+  },
+  {
+    id: 'canyon-heat-cup',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • September 16 at Turf Paradise',
+    type: 'fli',
+    scheduledOn: '2027-09-16T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-solstice-invitational',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • September 30 at Arizona Athletic Grounds',
+    type: 'fli',
+    scheduledOn: '2027-09-30T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-2'
+  },
+  {
+    id: 'high-desert-classic',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • October 14 at Turf Paradise',
+    type: 'fli',
+    scheduledOn: '2027-10-14T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-1'
+  },
+  {
+    id: 'mesa-flight-showdown',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • October 28 at Arizona Athletic Grounds',
+    type: 'fli',
+    scheduledOn: '2027-10-28T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-2'
+  },
+  {
+    id: 'fall-2027-turf-11-11',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • November 11 at Turf Paradise',
+    type: 'fli',
+    scheduledOn: '2027-11-11T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-1'
+  },
+  {
+    id: 'fall-2027-az-12-09',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • December 9 at Arizona Athletic Grounds',
+    type: 'fli',
+    scheduledOn: '2027-12-09T22:00:00.000Z',
+    scoringHoleCount: 18,
+    status: 'scheduled',
+    courseId: 'course-2'
+  }
+] satisfies readonly TournamentDto[];
+
 const demoData: Record<string, unknown> = {
   '/league/players': [
     {
@@ -775,52 +1311,11 @@ const demoData: Record<string, unknown> = {
       playerType: 'professional'
     }
   ] satisfies readonly PlayerDto[],
-  '/league/tournaments': [
-    {
-      id: 'tournament-1',
-      seasonId: 'season-1',
-      name: 'Spring Open',
-      type: 'fli',
-      scheduledOn: '2026-06-02T22:00:00.000Z',
-      scoringHoleCount: 18,
-      status: 'scheduled',
-      courseId: 'course-1'
-    },
-    {
-      id: 'tournament-2',
-      seasonId: 'season-1',
-      name: 'Summer Championship',
-      type: 'fli',
-      scheduledOn: '2026-08-11T22:00:00.000Z',
-      scoringHoleCount: 18,
-      status: 'scheduled',
-      courseId: 'course-2'
-    }
-  ] satisfies readonly TournamentDto[],
-  '/league/seasons': [
-    {
-      id: 'summer-season',
-      leagueId: 'fgl-league',
-      name: 'Summer Season',
-      brand: 'FLI Golf League',
-      startsOn: '2026-05-01T00:00:00.000Z',
-      endsOn: '2026-08-31T23:59:59.999Z',
-      yearlyPurseMinorUnits: 400_000_000,
-      yearlyPurseCurrency: 'USD',
-      status: 'current'
-    },
-    {
-      id: 'summer-2-season',
-      leagueId: 'fgl-league',
-      name: 'Summer 2 Season',
-      brand: 'FLI Golf League',
-      startsOn: '2027-06-01T00:00:00.000Z',
-      endsOn: '2027-08-31T23:59:59.999Z',
-      yearlyPurseMinorUnits: 800_000_000,
-      yearlyPurseCurrency: 'USD',
-      status: 'upcoming'
-    }
-  ] satisfies readonly SeasonDto[],
+  '/league/tournaments': defaultTournamentSeedForDemo,
+  '/league/seasons': defaultSeasonSeed satisfies readonly SeasonDto[],
+  '/sponsorship/tiers': defaultSponsorshipTierSeed satisfies readonly SponsorshipTierDto[],
+  '/sponsorship/sponsors': defaultSponsorSeed satisfies readonly SponsorDto[],
+  '/sponsorship/deals': defaultSponsorshipDealSeed satisfies readonly SponsorshipDealDto[],
   '/league/courses': [
     {
       id: 'course-1',
@@ -994,6 +1489,30 @@ const getDemoJson = (path: string): unknown => {
   if (path === '/organization/users') {
     return allUsers.filter((user) => user.organizationId === organizationId);
   }
+  if (path === '/league/seasons') {
+    return getPersistedDemoCollection<SeasonDto>(
+      demoSeasonsStorageKey,
+      defaultSeasonSeed
+    );
+  }
+  if (path === '/sponsorship/tiers') {
+    return getPersistedDemoCollection<SponsorshipTierDto>(
+      demoSponsorshipTiersStorageKey,
+      defaultSponsorshipTierSeed
+    );
+  }
+  if (path === '/sponsorship/sponsors') {
+    return getPersistedDemoCollection<SponsorDto>(
+      demoSponsorsStorageKey,
+      defaultSponsorSeed
+    );
+  }
+  if (path === '/sponsorship/deals') {
+    return getPersistedDemoCollection<SponsorshipDealDto>(
+      demoSponsorshipDealsStorageKey,
+      defaultSponsorshipDealSeed
+    );
+  }
   if (path === '/organization') {
     return (
       getOrganizationCatalog().find(
@@ -1020,6 +1539,34 @@ const getDemoJson = (path: string): unknown => {
 };
 
 const getJson = async <Value>(path: string): Promise<Value> => {
+  const persistedDemoCollection = [
+    '/league/seasons',
+    '/sponsorship/tiers',
+    '/sponsorship/sponsors',
+    '/sponsorship/deals'
+  ].includes(path)
+    ? getPersistedDemoCollection(
+        path === '/league/seasons'
+          ? demoSeasonsStorageKey
+          : path === '/sponsorship/tiers'
+            ? demoSponsorshipTiersStorageKey
+            : path === '/sponsorship/sponsors'
+              ? demoSponsorsStorageKey
+              : demoSponsorshipDealsStorageKey,
+        path === '/league/seasons'
+          ? defaultSeasonSeed
+          : path === '/sponsorship/tiers'
+            ? defaultSponsorshipTierSeed
+            : path === '/sponsorship/sponsors'
+              ? defaultSponsorSeed
+              : defaultSponsorshipDealSeed
+      )
+    : undefined;
+
+  if (persistedDemoCollection !== undefined) {
+    return persistedDemoCollection as Value;
+  }
+
   try {
     const response = await fetch(path, {
       headers: getOrganizationHeaders()
@@ -1154,6 +1701,12 @@ export const seedAllTournamentTeeGroups = () =>
     {}
   );
 export const fetchSeasons = () => getJson<readonly SeasonDto[]>('/league/seasons');
+export const fetchSponsors = () =>
+  getJson<readonly SponsorDto[]>('/sponsorship/sponsors');
+export const fetchSponsorshipTiers = () =>
+  getJson<readonly SponsorshipTierDto[]>('/sponsorship/tiers');
+export const fetchSponsorshipDeals = () =>
+  getJson<readonly SponsorshipDealDto[]>('/sponsorship/deals');
 export const fetchCourses = () =>
   getJson<readonly CourseDto[]>('/league/courses');
 export const fetchHoles = () => getJson<readonly HoleDto[]>('/league/holes');

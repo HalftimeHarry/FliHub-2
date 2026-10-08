@@ -39,4 +39,61 @@ describe('default seed data', () => {
     expect(arizonaHoles[8]?.number).toBe(9);
     expect(arizonaHoles[9]?.number).toBe(10);
   });
+
+  it('uses a full 12-tournament 2027 schedule with valid season, date, and venue mappings', async () => {
+    const repositories = createLeagueRepositories();
+    const tournaments = await repositories.tournaments.list();
+    const fglTournaments = tournaments.filter(
+      (tournament) => tournament.organizationId.value === 'fgl'
+    );
+    const summer = fglTournaments.filter(
+      (tournament) => tournament.seasonId.value === 'summer-2027'
+    );
+    const fall = fglTournaments.filter(
+      (tournament) => tournament.seasonId.value === 'fall-2027'
+    );
+
+    expect(summer).toHaveLength(6);
+    expect(fall).toHaveLength(6);
+    expect(
+      summer.map((tournament) => tournament.name)
+    ).toEqual([
+      'Summer Season • June 2 at Turf Paradise',
+      'Summer Season • June 16 at Turf Paradise',
+      'Summer Season • June 30 at Turf Paradise',
+      'Summer Season • July 14 at Arizona Athletic Grounds',
+      'Summer Season • July 28 at Arizona Athletic Grounds',
+      'Summer Season • August 11 at Arizona Athletic Grounds'
+    ]);
+    expect(
+      fall.map((tournament) => tournament.name)
+    ).toEqual([
+      'Fall Season • September 16 at Turf Paradise',
+      'Fall Season • September 30 at Arizona Athletic Grounds',
+      'Fall Season • October 14 at Turf Paradise',
+      'Fall Season • October 28 at Arizona Athletic Grounds',
+      'Fall Season • November 11 at Turf Paradise',
+      'Fall Season • December 9 at Arizona Athletic Grounds'
+    ]);
+
+    const seasonById = new Map(
+      (await repositories.seasons.list()).map((season) => [season.id.value, season])
+    );
+    const courses = await repositories.courses.list();
+    for (const tournament of fglTournaments) {
+      const season = seasonById.get(tournament.seasonId.value);
+      expect(season).toBeDefined();
+      expect(tournament.scheduledOn).toBeDefined();
+      expect(tournament.courseId).toBeDefined();
+      expect(tournament.scheduledOn!.getTime()).toBeGreaterThanOrEqual(
+        season!.dateRange.startsOn.getTime()
+      );
+      expect(tournament.scheduledOn!.getTime()).toBeLessThanOrEqual(
+        season!.dateRange.endsOn.getTime()
+      );
+      const course = courses.find((entry) => entry.id.value === tournament.courseId!.value);
+      expect(course).toBeDefined();
+      expect(['course-1', 'course-2']).toContain(course!.id.value);
+    }
+  });
 });

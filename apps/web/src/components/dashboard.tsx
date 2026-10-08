@@ -1,11 +1,23 @@
 import { useEffect, useState, type SyntheticEvent } from 'react';
 import {
   ArrowDownUp,
+  BadgeDollarSign,
+  BriefcaseBusiness,
+  CalendarRange,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
+  FileText,
+  FolderKanban,
+  Map,
   Pencil,
   Plus,
+  ShieldCheck,
+  Sparkles,
   Trash2,
+  Trophy,
+  Users,
+  WalletCards,
   X
 } from 'lucide-react';
 import {
@@ -14,6 +26,10 @@ import {
   addFantasyTeam,
   addHole,
   addOrganizationDepartment,
+  resetDemoSeasonAndSponsorData,
+  resolveTitleSponsorForTarget,
+  formatDateOnlyUtc,
+  formatDateInputValueUtc,
   addTeam,
   addTournament,
   approveFantasyLeagueMembership,
@@ -41,6 +57,9 @@ import {
   fetchProjects,
   fetchReimbursementClaims,
   fetchSeasons,
+  fetchSponsors,
+  fetchSponsorshipDeals,
+  fetchSponsorshipTiers,
   fetchTeams,
   fetchTournamentRegistrations,
   fetchTournamentTeeGroupScorecard,
@@ -72,6 +91,9 @@ import {
   type ProjectDto,
   type ReimbursementClaimDto,
   type SeasonDto,
+  type SponsorDto,
+  type SponsorshipDealDto,
+  type SponsorshipTierDto,
   type TeamDto,
   type TournamentDto,
   type TournamentTeeGroupDto,
@@ -109,6 +131,9 @@ import {
 interface DashboardData {
   readonly players: readonly PlayerDto[];
   readonly seasons: readonly SeasonDto[];
+  readonly sponsors: readonly SponsorDto[];
+  readonly sponsorshipTiers: readonly SponsorshipTierDto[];
+  readonly sponsorshipDeals: readonly SponsorshipDealDto[];
   readonly teams: readonly TeamDto[];
   readonly tournaments: readonly TournamentDto[];
   readonly courses: readonly CourseDto[];
@@ -135,22 +160,74 @@ type TournamentSortKey =
   | 'courseId'
   | 'type';
 
+const sectionIcons = {
+  seasons: CalendarRange,
+  players: Users,
+  teams: ShieldCheck,
+  tournaments: Trophy,
+  groups: ClipboardCheck,
+  scoring: Sparkles,
+  courses: Map,
+  holes: FileText,
+  registrations: BriefcaseBusiness,
+  sponsors: BadgeDollarSign,
+  fantasy: Sparkles,
+  drafts: FolderKanban,
+  departments: BriefcaseBusiness,
+  projects: FolderKanban,
+  claims: WalletCards
+} as const;
+
 const dashboardSections = [
-  { value: 'seasons', label: 'Seasons' },
-  { value: 'players', label: 'Players' },
-  { value: 'teams', label: 'Teams' },
-  { value: 'tournaments', label: 'Tournaments' },
-  { value: 'groups', label: 'Groups' },
-  { value: 'scoring', label: 'Scoring' },
-  { value: 'courses', label: 'Courses' },
-  { value: 'holes', label: 'Holes' },
-  { value: 'registrations', label: 'Registrations' },
-  { value: 'fantasy', label: 'Fantasy' },
-  { value: 'drafts', label: 'Drafts' },
-  { value: 'departments', label: 'Departments' },
-  { value: 'projects', label: 'Projects' },
-  { value: 'claims', label: 'Claims' }
+  { value: 'seasons', label: 'Seasons', group: 'League' },
+  { value: 'players', label: 'Players', group: 'League' },
+  { value: 'teams', label: 'Teams', group: 'League' },
+  { value: 'tournaments', label: 'Tournaments', group: 'League' },
+  { value: 'groups', label: 'Groups', group: 'League' },
+  { value: 'scoring', label: 'Scoring', group: 'League' },
+  { value: 'courses', label: 'Courses', group: 'League' },
+  { value: 'holes', label: 'Holes', group: 'League' },
+  { value: 'registrations', label: 'Registrations', group: 'League' },
+  { value: 'sponsors', label: 'Sponsors', group: 'Business' },
+  { value: 'fantasy', label: 'Fantasy', group: 'Fantasy' },
+  { value: 'drafts', label: 'Drafts', group: 'Fantasy' },
+  { value: 'departments', label: 'Departments', group: 'Workspace' },
+  { value: 'projects', label: 'Projects', group: 'Workspace' },
+  { value: 'claims', label: 'Claims', group: 'Workspace' }
 ] as const;
+
+const dashboardSectionGroups = [
+  { label: 'League', items: dashboardSections.filter((section) => section.group === 'League') },
+  { label: 'Business', items: dashboardSections.filter((section) => section.group === 'Business') },
+  { label: 'Fantasy', items: dashboardSections.filter((section) => section.group === 'Fantasy') },
+  { label: 'Workspace', items: dashboardSections.filter((section) => section.group === 'Workspace') }
+] as const;
+
+const groupHeaderStyles = {
+  League: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200',
+  Business: 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-200',
+  Fantasy: 'border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-800 dark:bg-pink-950/30 dark:text-pink-200',
+  Workspace: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-200'
+} as const;
+
+const groupLinkStyles = {
+  League: {
+    default: 'border-emerald-200 bg-emerald-50/70 text-emerald-700 hover:bg-emerald-100/80 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30',
+    selected: 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100'
+  },
+  Business: {
+    default: 'border-cyan-200 bg-cyan-50/70 text-cyan-700 hover:bg-cyan-100/80 dark:border-cyan-800 dark:bg-cyan-950/20 dark:text-cyan-200 dark:hover:bg-cyan-900/30',
+    selected: 'border-cyan-300 bg-cyan-100 text-cyan-800 dark:border-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-100'
+  },
+  Fantasy: {
+    default: 'border-pink-200 bg-pink-50/70 text-pink-700 hover:bg-pink-100/80 dark:border-pink-800 dark:bg-pink-950/20 dark:text-pink-200 dark:hover:bg-pink-900/30',
+    selected: 'border-pink-300 bg-pink-100 text-pink-800 dark:border-pink-700 dark:bg-pink-900/30 dark:text-pink-100'
+  },
+  Workspace: {
+    default: 'border-violet-200 bg-violet-50/70 text-violet-700 hover:bg-violet-100/80 dark:border-violet-800 dark:bg-violet-950/20 dark:text-violet-200 dark:hover:bg-violet-900/30',
+    selected: 'border-violet-300 bg-violet-100 text-violet-800 dark:border-violet-700 dark:bg-violet-900/30 dark:text-violet-100'
+  }
+} as const;
 
 type DashboardSection = (typeof dashboardSections)[number]['value'];
 
@@ -171,6 +248,60 @@ const getHoleDisplayName = (
   hole: HoleDto,
   courses: readonly CourseDto[]
 ): string => `${getCourseNameById(hole.courseId, courses)} • Hole ${hole.number}`;
+
+const getSeasonNameById = (
+  seasonId: string,
+  seasons: readonly SeasonDto[]
+): string => seasons.find((season) => season.id === seasonId)?.name ?? seasonId;
+
+const getTournamentNameById = (
+  tournamentId: string,
+  tournaments: readonly TournamentDto[]
+): string => tournaments.find((tournament) => tournament.id === tournamentId)?.name ?? tournamentId;
+
+const getSponsorTierNameById = (
+  tierId: string,
+  tiers: readonly SponsorshipTierDto[]
+): string => tiers.find((tier) => tier.id === tierId)?.name ?? tierId;
+
+const formatCurrency = (amount: number): string =>
+  new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(amount);
+
+function SponsorLogo({ sponsor }: { readonly sponsor: SponsorDto }) {
+  const initials = sponsor.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || 'SP';
+
+  const [imageFailed, setImageFailed] = useState(false);
+
+  if (!sponsor.logoUrl || imageFailed) {
+    return (
+      <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-foreground">
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
+      <img
+        src={sponsor.logoUrl}
+        alt={`${sponsor.name} logo`}
+        className="h-full w-full object-cover"
+        onError={() => {
+          setImageFailed(true);
+        }}
+      />
+    </div>
+  );
+}
 
 function AddDepartmentForm({
   onAdded
@@ -239,23 +370,33 @@ function AddDepartmentForm({
 
 function EditSeasonModal({
   season,
+  sponsors,
+  deals,
   onClose,
   onSaved
 }: {
   readonly season: SeasonDto;
+  readonly sponsors: readonly SponsorDto[];
+  readonly deals: readonly SponsorshipDealDto[];
   readonly onClose: () => void;
   readonly onSaved: () => void;
 }) {
   const [name, setName] = useState(season.name);
   const [brand, setBrand] = useState(season.brand ?? season.name);
-  const [startsOn, setStartsOn] = useState(season.startsOn.slice(0, 10));
-  const [endsOn, setEndsOn] = useState(season.endsOn.slice(0, 10));
+  const [startsOn, setStartsOn] = useState(formatDateInputValueUtc(season.startsOn));
+  const [endsOn, setEndsOn] = useState(formatDateInputValueUtc(season.endsOn));
   const [yearlyPurse, setYearlyPurse] = useState(
     (season.yearlyPurseMinorUnits / 100).toString()
   );
   const [status, setStatus] = useState(season.status);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const titleSponsor = resolveTitleSponsorForTarget({
+    targetType: 'season',
+    targetId: season.id,
+    sponsors,
+    deals
+  });
 
   const save = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -329,6 +470,34 @@ function EditSeasonModal({
           <div className="flex flex-col gap-2">
             <Label htmlFor="edit-season-purse">Yearly purse ({season.yearlyPurseCurrency})</Label>
             <Input id="edit-season-purse" type="number" min={0} step="1" value={yearlyPurse} onChange={(event) => { setYearlyPurse(event.target.value); }} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Title sponsor</Label>
+            <div className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              {titleSponsor.status === 'not-assigned' ? (
+                <span className="text-muted-foreground">Not assigned</span>
+              ) : titleSponsor.status === 'conflict' ? (
+                <span className="font-medium text-amber-600 dark:text-amber-400">Title sponsor conflict</span>
+              ) : titleSponsor.sponsor ? (
+                <>
+                  {titleSponsor.sponsor.logoUrl && (
+                    <img
+                      src={titleSponsor.sponsor.logoUrl}
+                      alt={titleSponsor.sponsor.name}
+                      className="h-6 w-6 rounded-full object-cover"
+                    />
+                  )}
+                  <span className="font-medium">{titleSponsor.sponsor.brandName ?? titleSponsor.sponsor.name}</span>
+                  {titleSponsor.status === 'prospective' && (
+                    <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-amber-600 dark:text-amber-400">
+                      Prospective
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-muted-foreground">Not assigned</span>
+              )}
+            </div>
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="edit-season-status">Status</Label>
@@ -432,6 +601,13 @@ function NewSeasonModal({
           <div className="flex flex-col gap-2">
             <Label htmlFor="new-season-purse">Yearly purse (USD)</Label>
             <Input id="new-season-purse" type="number" min={0} step="1" value={yearlyPurse} onChange={(event) => { setYearlyPurse(event.target.value); }} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label>Title sponsor</Label>
+            <div className="flex min-h-10 items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              Not assigned
+            </div>
+            <p className="text-xs text-muted-foreground">Use Reset demo data to restore default season sponsor assignments.</p>
           </div>
           {error !== undefined && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
@@ -582,7 +758,7 @@ function AddTournamentForm({
           void seedSix();
         }}
       >
-        {seeding ? 'Seeding 6...' : 'Seed 6'}
+        {seeding ? 'Seeding 12...' : 'Seed 12'}
       </Button>
       {error !== undefined && (
         <p className="text-sm text-destructive sm:basis-full">{error}</p>
@@ -2335,10 +2511,15 @@ export function Dashboard({
   const [activeSection, setActiveSection] = useState<DashboardSection>('seasons');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') {
-      return false;
+      return true;
     }
-    return window.innerWidth < 768;
+    return true;
   });
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(
+      dashboardSectionGroups.map((group) => [group.label, true])
+    )
+  );
   const [seasonActionError, setSeasonActionError] = useState<string | undefined>(undefined);
   const [playerSort, setPlayerSort] = useState<{
     key: PlayerSortKey;
@@ -2373,6 +2554,9 @@ export function Dashboard({
     void Promise.all([
       fetchPlayers(),
       fetchSeasons(),
+      fetchSponsors(),
+      fetchSponsorshipTiers(),
+      fetchSponsorshipDeals(),
       fetchTeams(),
       fetchTournaments(),
       fetchCourses(),
@@ -2391,6 +2575,9 @@ export function Dashboard({
       ([
         players,
         seasons,
+        sponsors,
+        sponsorshipTiers,
+        sponsorshipDeals,
         teams,
         tournaments,
         courses,
@@ -2410,6 +2597,9 @@ export function Dashboard({
           setData({
             players,
             seasons,
+            sponsors,
+            sponsorshipTiers,
+            sponsorshipDeals,
             teams,
             tournaments,
             courses,
@@ -2688,30 +2878,67 @@ export function Dashboard({
           </Button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 p-2">
-          {dashboardSections.map((section) => {
-            const isSelected = activeSection === section.value;
+        <nav className="flex flex-1 flex-col gap-2 p-2">
+          {dashboardSectionGroups.map((group) => {
+            const isCollapsed = collapsedGroups[group.label] ?? true;
+            const groupHeaderClass = groupHeaderStyles[group.label as keyof typeof groupHeaderStyles];
+
             return (
-              <Button
-                key={section.value}
-                type="button"
-                variant={isSelected ? 'secondary' : 'ghost'}
-                size={sidebarCollapsed ? 'icon-sm' : 'sm'}
-                className={[
-                  'justify-start',
-                  sidebarCollapsed ? 'px-2' : 'px-3',
-                  isSelected ? 'font-medium' : ''
-                ].join(' ')}
-                onClick={() => {
-                  setActiveSection(section.value);
-                }}
-                aria-current={isSelected ? 'page' : undefined}
-                title={section.label}
-              >
-                <span className={sidebarCollapsed ? 'sr-only' : 'truncate'}>
-                  {section.label}
-                </span>
-              </Button>
+              <div key={group.label} className="flex flex-col gap-1">
+                {!sidebarCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCollapsedGroups((current) => ({
+                        ...current,
+                        [group.label]: !(current[group.label] ?? true)
+                      }));
+                    }}
+                    className={[
+                      'flex items-center justify-between rounded-md border px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-[0.18em] transition-colors hover:opacity-90',
+                      groupHeaderClass
+                    ].join(' ')}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      {group.label}
+                    </span>
+                    <ChevronRight className={['h-3.5 w-3.5 transition-transform', isCollapsed ? '' : 'rotate-90'].join(' ')} />
+                  </button>
+                )}
+
+                {!isCollapsed && group.items.map((section) => {
+                  const isSelected = activeSection === section.value;
+                  const Icon = sectionIcons[section.value];
+                  const linkStyles = groupLinkStyles[group.label as keyof typeof groupLinkStyles];
+
+                  return (
+                    <Button
+                      key={section.value}
+                      type="button"
+                      variant={isSelected ? 'secondary' : 'ghost'}
+                      size={sidebarCollapsed ? 'icon-sm' : 'sm'}
+                      className={[
+                        'justify-start gap-2 border',
+                        sidebarCollapsed ? 'px-2' : 'px-3',
+                        isSelected ? linkStyles.selected : linkStyles.default
+                      ].join(' ')}
+                      onClick={() => {
+                        setActiveSection(section.value);
+                      }}
+                      aria-current={isSelected ? 'page' : undefined}
+                      title={section.label}
+                    >
+                      <span className={['flex h-5 w-5 items-center justify-center rounded-md border border-current/20 bg-transparent text-current', isSelected ? 'border-current/30' : ''].join(' ')}>
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      {!sidebarCollapsed && (
+                        <span className="truncate">{section.label}</span>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
@@ -2808,7 +3035,33 @@ export function Dashboard({
 
             {activeSection === 'seasons' && (
               <>
-                <div className="mb-4 flex justify-end">
+                <div className="mb-4 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      console.log('Reset demo data clicked');
+                      const nextReset = resetDemoSeasonAndSponsorData();
+                      console.log('Reset payload', nextReset);
+
+                      void fetchSeasons().then((nextSeasons) => {
+                        console.log('Refetched seasons after reset', nextSeasons);
+                        setData((current) => {
+                          if (current === undefined) {
+                            return current;
+                          }
+                          return {
+                            ...current,
+                            seasons: nextSeasons
+                          };
+                        });
+                      });
+
+                      onDepartmentsChanged?.();
+                    }}
+                  >
+                    Reset demo data
+                  </Button>
                   <Button
                     type="button"
                     onClick={() => {
@@ -2829,80 +3082,119 @@ export function Dashboard({
                       <TableHead>Starts</TableHead>
                       <TableHead>Ends</TableHead>
                       <TableHead>Yearly purse</TableHead>
+                      <TableHead>Title sponsor</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="w-16"><span className="sr-only">Actions</span></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.seasons.map((season) => (
-                      <TableRow key={season.id}>
-                        <TableCell>{season.name}</TableCell>
-                        <TableCell>{season.brand ?? season.name}</TableCell>
-                        <TableCell>{season.leagueId}</TableCell>
-                        <TableCell>{new Date(season.startsOn).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(season.endsOn).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          {(season.yearlyPurseMinorUnits / 100).toLocaleString(
-                            undefined,
-                            {
-                              style: 'currency',
-                              currency: season.yearlyPurseCurrency,
-                              maximumFractionDigits: 0
-                            }
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              season.status === 'current' ? 'default' : 'outline'
-                            }
-                          >
-                            {season.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Edit ${season.name}`}
-                              onClick={() => {
-                                setEditingSeason(season);
-                              }}
+                    {data?.seasons.map((season) => {
+                      const titleSponsor = resolveTitleSponsorForTarget({
+                        targetType: 'season',
+                        targetId: season.id,
+                        sponsors: data?.sponsors ?? [],
+                        deals: data?.sponsorshipDeals ?? []
+                      });
+
+                      return (
+                        <TableRow key={season.id}>
+                          <TableCell>{season.name}</TableCell>
+                          <TableCell>{season.brand ?? season.name}</TableCell>
+                          <TableCell>{season.leagueId}</TableCell>
+                          <TableCell>{formatDateOnlyUtc(season.startsOn)}</TableCell>
+                          <TableCell>{formatDateOnlyUtc(season.endsOn)}</TableCell>
+                          <TableCell>
+                            {(season.yearlyPurseMinorUnits / 100).toLocaleString(
+                              undefined,
+                              {
+                                style: 'currency',
+                                currency: season.yearlyPurseCurrency,
+                                maximumFractionDigits: 0
+                              }
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {titleSponsor.status === 'not-assigned' ? (
+                              <span className="text-muted-foreground">Not assigned</span>
+                            ) : titleSponsor.status === 'conflict' ? (
+                              <span className="font-medium text-amber-600 dark:text-amber-400">Title sponsor conflict</span>
+                            ) : titleSponsor.sponsor ? (
+                              <div className="flex items-center gap-2">
+                                {titleSponsor.sponsor.logoUrl && (
+                                  <img
+                                    src={titleSponsor.sponsor.logoUrl}
+                                    alt={titleSponsor.sponsor.name}
+                                    className="h-6 w-6 rounded-full object-cover"
+                                  />
+                                )}
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{titleSponsor.sponsor.brandName ?? titleSponsor.sponsor.name}</span>
+                                  {titleSponsor.status === 'prospective' && (
+                                    <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-amber-600 dark:text-amber-400">
+                                      Prospective
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">Not assigned</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                season.status === 'current' ? 'default' : 'outline'
+                              }
                             >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Delete ${season.name}`}
-                              onClick={() => {
-                                if (!window.confirm(`Delete ${season.name}? Seasons with tournaments cannot be deleted.`)) return;
-                                void deleteSeason(season.id).then(
-                                  () => onDepartmentsChanged?.(),
-                                  (caught: unknown) => {
-                                    setSeasonActionError(
-                                      caught instanceof Error
-                                        ? caught.message
-                                        : 'Could not delete season.'
-                                    );
-                                  }
-                                );
-                              }}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              {season.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Edit ${season.name}`}
+                                onClick={() => {
+                                  setEditingSeason(season);
+                                }}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`Delete ${season.name}`}
+                                onClick={() => {
+                                  if (!window.confirm(`Delete ${season.name}? Seasons with tournaments cannot be deleted.`)) return;
+                                  void deleteSeason(season.id).then(
+                                    () => onDepartmentsChanged?.(),
+                                    (caught: unknown) => {
+                                      setSeasonActionError(
+                                        caught instanceof Error
+                                          ? caught.message
+                                          : 'Could not delete season.'
+                                      );
+                                    }
+                                  );
+                                }}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 {editingSeason !== undefined && (
                   <EditSeasonModal
                     season={editingSeason}
+                    sponsors={data?.sponsors ?? []}
+                    deals={data?.sponsorshipDeals ?? []}
                     onClose={() => {
                       setEditingSeason(undefined);
                     }}
@@ -3106,6 +3398,103 @@ export function Dashboard({
                 {seasonActionError !== undefined && (
                   <p className="text-sm text-destructive">{seasonActionError}</p>
                 )}
+              </div>
+            )}
+
+            {activeSection === 'sponsors' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+                  <p className="text-sm text-muted-foreground">
+                    Mock/demo sponsor records and existing sponsorship relationships from the current app schema.
+                  </p>
+                  <Badge variant="outline">Demo data</Badge>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Logo</TableHead>
+                      <TableHead>Sponsor</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Linked season / tournament</TableHead>
+                      <TableHead>Tier</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Deal value</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(data?.sponsors ?? []).map((sponsor) => {
+                      const sponsorDeals = (data?.sponsorshipDeals ?? []).filter(
+                        (deal) => deal.sponsorId === sponsor.id
+                      );
+
+                      if (sponsorDeals.length === 0) {
+                        return (
+                          <TableRow key={sponsor.id}>
+                            <TableCell>
+                              <SponsorLogo sponsor={sponsor} />
+                            </TableCell>
+                            <TableCell>{sponsor.name}</TableCell>
+                            <TableCell>{sponsor.category}</TableCell>
+                            <TableCell className="text-muted-foreground">No current sponsorship relationship</TableCell>
+                            <TableCell>—</TableCell>
+                            <TableCell>
+                              <Badge variant="secondary">{sponsor.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">No deal data in current mock schema.</TableCell>
+                          </TableRow>
+                        );
+                      }
+
+                      return sponsorDeals.map((deal) => {
+                        const targetName =
+                          deal.targetType === 'season'
+                            ? getSeasonNameById(deal.targetId, data?.seasons ?? [])
+                            : deal.targetType === 'tournament'
+                              ? getTournamentNameById(deal.targetId, data?.tournaments ?? [])
+                              : deal.targetId;
+
+                        const dealValueLabel =
+                          deal.status === 'lead' || deal.status === 'proposal'
+                            ? 'Proposed'
+                            : 'Contracted';
+
+                        return (
+                          <TableRow key={deal.id}>
+                            <TableCell>
+                              <SponsorLogo sponsor={sponsor} />
+                            </TableCell>
+                            <TableCell>{sponsor.name}</TableCell>
+                            <TableCell>{sponsor.category}</TableCell>
+                            <TableCell>{targetName}</TableCell>
+                            <TableCell>
+                              {getSponsorTierNameById(deal.tierId, data?.sponsorshipTiers ?? [])}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  deal.status === 'active' || deal.status === 'paid'
+                                    ? 'default'
+                                    : deal.status === 'proposal'
+                                      ? 'secondary'
+                                      : 'outline'
+                                }
+                              >
+                                {deal.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{dealValueLabel}</span>
+                                <span>{formatCurrency(deal.contractValue)}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             )}
 

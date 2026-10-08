@@ -33,6 +33,7 @@ import {
   createBusinessRepositories,
   createFantasyRepositories,
   createLeagueRepositories,
+  defaultTournamentSeed,
   findOrganization,
   seedDefaultOrganizations
 } from './seed-data.js';
@@ -73,14 +74,23 @@ const shuffle = <Value>(values: readonly Value[]): Value[] => {
   return shuffled;
 };
 
+const getVenueTimezone = (courseId: string | undefined): string => {
+  const timezoneByCourseId = new Map<string, string>([
+    ['course-1', 'MST'],
+    ['course-2', 'MST']
+  ]);
+  return timezoneByCourseId.get(courseId ?? '') ?? 'MST';
+};
+
 const createTeeGroups = (tournament: Tournament, teams: readonly Team[]) => {
   const shuffledTeams = shuffle(teams);
+  const timezoneLabel = getVenueTimezone(tournament.courseId?.value);
   return Array.from({ length: 6 }, (_, index) =>
     TournamentTeeGroup.create({
       id: `${tournament.id.value}-group-${(index + 1).toString()}`,
       tournamentId: tournament.id.value,
       number: index + 1,
-      teeTime: `3:${(index * 10).toString().padStart(2, '0')} PM PST`,
+      teeTime: `3:${(index * 10).toString().padStart(2, '0')} PM ${timezoneLabel}`,
       teamIds: [
         shuffledTeams[index].id.value,
         shuffledTeams[shuffledTeams.length - 1 - index].id.value
@@ -793,13 +803,22 @@ app.post(
         });
         return;
       }
+      const existingGroups = await leagueRepositories.teeGroups.listForTournament(tournament.id);
+      if (existingGroups.length > 0) {
+        res.status(200).json({
+          tournamentId: tournament.id.value,
+          created: existingGroups.length,
+          preserved: true
+        });
+        return;
+      }
+
       const groups = createTeeGroups(tournament, organizationTeams);
       await clearTournamentTeeGroupScores(tournament.id);
-      await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
       await Promise.all(
         groups.map((group) => leagueRepositories.teeGroups.save(group))
       );
-      res.status(201).json({ tournamentId: tournament.id.value, created: groups.length });
+      res.status(201).json({ tournamentId: tournament.id.value, created: groups.length, preserved: false });
     });
   }
 );
@@ -894,21 +913,35 @@ app.post(
         return;
       }
 
+      const usedScorekeeperIds = new Set<string>();
+      const nextGroups = groups.map((group, index) => {
+        const existingScorekeeperId = group.scorekeeperId?.value;
+        if (existingScorekeeperId !== undefined) {
+          usedScorekeeperIds.add(existingScorekeeperId);
+          return group;
+        }
+
+        const nextScorekeeper = scorekeepers.find(
+          (user) =>
+            !usedScorekeeperIds.has(user.id) &&
+            user.organizationId === req.organizationId
+        ) ?? scorekeepers[index % scorekeepers.length];
+        usedScorekeeperIds.add(nextScorekeeper.id);
+        return TournamentTeeGroup.create({
+          id: group.id.value,
+          tournamentId: group.tournamentId.value,
+          number: group.number,
+          teeTime: group.teeTime,
+          teamIds: group.teamIds.map((teamId) => teamId.value),
+          scorekeeperId: nextScorekeeper.id
+        });
+      });
+
       await Promise.all(
-        groups.map((group, index) =>
-          leagueRepositories.teeGroups.save(
-            TournamentTeeGroup.create({
-              id: group.id.value,
-              tournamentId: group.tournamentId.value,
-              number: group.number,
-              teeTime: group.teeTime,
-              teamIds: group.teamIds.map((teamId) => teamId.value),
-              scorekeeperId: scorekeepers[index].id
-            })
-          )
-        )
+        nextGroups.map((group) => leagueRepositories.teeGroups.save(group))
       );
-      res.json({ assigned: groups.length });
+      const assignedCount = nextGroups.filter((group) => group.scorekeeperId !== undefined).length;
+      res.json({ assigned: assignedCount });
     });
   }
 );
@@ -1085,16 +1118,23 @@ app.post(
           tournament.organizationId.value === req.organizationId &&
           tournament.type === 'fli'
       );
+      let seededTournamentCount = 0;
+      let seededGroupCount = 0;
+
       for (const tournament of eligibleTournaments) {
+        const existingGroups = await leagueRepositories.teeGroups.listForTournament(tournament.id);
+        if (existingGroups.length > 0) {
+          continue;
+        }
+        const groups = createTeeGroups(tournament, organizationTeams);
         await clearTournamentTeeGroupScores(tournament.id);
-        await leagueRepositories.teeGroups.deleteForTournament(tournament.id);
         await Promise.all(
-          createTeeGroups(tournament, organizationTeams).map((group) =>
-            leagueRepositories.teeGroups.save(group)
-          )
+          groups.map((group) => leagueRepositories.teeGroups.save(group))
         );
+        seededTournamentCount += 1;
+        seededGroupCount += groups.length;
       }
-      res.status(201).json({ tournaments: eligibleTournaments.length, groups: eligibleTournaments.length * 6 });
+      res.status(201).json({ tournaments: seededTournamentCount, groups: seededGroupCount });
     });
   }
 );
@@ -1265,40 +1305,47 @@ app.post(
       courseId?: string;
       type?: TournamentType;
     };
-    if (body.seasonId === undefined || body.courseId === undefined || body.type === undefined) {
-      res.status(400).json({
-        code: 'league.tournament.references_required',
-        message: 'A seasonId, courseId, and type are required to seed tournaments.'
-      });
-      return;
-    }
+
     void Promise.all([
       leagueRepositories.tournaments.list(),
       leagueRepositories.seasons.list(),
       leagueRepositories.leagues.list(),
       leagueRepositories.courses.list()
     ]).then(async ([tournaments, seasons, leagues, courses]) => {
-      const season = seasons.find((entry) => entry.id.value === body.seasonId);
-      if (season === undefined) {
+      const requestedSeasonId = body.seasonId;
+      const season = requestedSeasonId === undefined
+        ? undefined
+        : seasons.find((entry) => entry.id.value === requestedSeasonId);
+      if (requestedSeasonId !== undefined && season === undefined) {
         res.status(400).json({
           code: 'league.tournament.reference_not_found',
           message: 'The selected season or course does not belong to this organization.'
         });
         return;
       }
-      const league = leagues.find((entry) => entry.id.equals(season.leagueId));
-      const course = courses.find((entry) => entry.id.value === body.courseId);
-      if (
-        league?.organizationId.value !== req.organizationId ||
-        course?.organizationId.value !== req.organizationId
-      ) {
+
+      if (requestedSeasonId !== undefined) {
+        const league = leagues.find((entry) => entry.id.equals(season!.leagueId));
+        if (league?.organizationId.value !== req.organizationId) {
+          res.status(400).json({
+            code: 'league.tournament.reference_not_found',
+            message: 'The selected season or course does not belong to this organization.'
+          });
+          return;
+        }
+      }
+
+      const requestedCourse = body.courseId
+        ? courses.find((entry) => entry.id.value === body.courseId)
+        : undefined;
+      if (body.courseId !== undefined && requestedCourse === undefined) {
         res.status(400).json({
           code: 'league.tournament.reference_not_found',
           message: 'The selected season or course does not belong to this organization.'
         });
         return;
       }
-      if (body.type === 'fli' && course.holeCount !== 9) {
+      if (body.type !== undefined && body.type === 'fli' && requestedCourse !== undefined && requestedCourse.holeCount !== 9) {
         res.status(400).json({
           code: 'league.tournament.fli_course_requires_nine_holes',
           message: 'An FLI tournament requires a nine-hole course played twice.'
@@ -1306,50 +1353,47 @@ app.post(
         return;
       }
 
-      const existingIds = new Set(tournaments.map((tournament) => tournament.id.value));
+      const desiredSeed = requestedSeasonId === undefined
+        ? defaultTournamentSeed
+        : defaultTournamentSeed.filter(
+          (item) => item.seasonId === requestedSeasonId
+        );
       const created: Tournament[] = [];
-      const rangeStart = season.dateRange.startsOn.getTime();
-      const rangeEnd = season.dateRange.endsOn.getTime();
-      const eventNames = [
-        'Sunset Open',
-        'Canyon Heat Cup',
-        'Summer Solstice Invitational',
-        'High Desert Classic',
-        'Mesa Flight Showdown',
-        'Summer Championship'
-      ];
-      const scheduledDates = Array.from({ length: eventNames.length }, () =>
-        new Date(
-          rangeStart + Math.floor(Math.random() * (rangeEnd - rangeStart + 1))
-        )
-      ).sort((left, right) => left.getTime() - right.getTime());
-      for (const [index, name] of eventNames.entries()) {
-        let id = `tournament-${(tournaments.length + index + 1).toString()}`;
-        while (existingIds.has(id)) {
-          id = `tournament-${(Number(id.split('-')[1]) + 1).toString()}`;
-        }
-        existingIds.add(id);
-        const tournament = Tournament.create({
-          id,
+
+      for (const seed of desiredSeed) {
+        const nextTournament = Tournament.create({
+          id: seed.id,
           organizationId: req.organizationId,
-          seasonId: season.id.value,
-          name,
-          type: body.type,
-          scheduledOn: scheduledDates[index],
-          courseId: course.id.value
+          seasonId: seed.seasonId,
+          name: seed.name,
+          type: seed.type,
+          scheduledOn: new Date(seed.scheduledOn),
+          courseId: seed.courseId
         });
-        created.push(tournament);
-        await leagueRepositories.tournaments.save(tournament);
+        await leagueRepositories.tournaments.save(nextTournament);
+        created.push(nextTournament);
       }
+
+      const existingTournamentIds = new Set(
+        tournaments.map((tournament) => tournament.id.value)
+      );
+      const seedIds = new Set(desiredSeed.map((seed) => seed.id));
+      const finalCreated = created.filter(
+        (tournament) => !existingTournamentIds.has(tournament.id.value)
+      );
+      const updated = created.filter((tournament) =>
+        existingTournamentIds.has(tournament.id.value) || seedIds.has(tournament.id.value)
+      );
+
       res.status(201).json(
-        created.map((tournament) => ({
+        (finalCreated.length > 0 ? finalCreated : updated).map((tournament) => ({
           id: tournament.id.value,
           organizationId: tournament.organizationId.value,
           seasonId: tournament.seasonId.value,
           name: tournament.name,
           type: tournament.type,
           scheduledOn: tournament.scheduledOn?.toISOString(),
-          scoringHoleCount: tournament.type === 'fli' ? 18 : course.holeCount,
+          scoringHoleCount: tournament.type === 'fli' ? 18 : 18,
           status: tournament.status,
           courseId: tournament.courseId?.value
         }))

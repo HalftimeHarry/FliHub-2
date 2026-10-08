@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 110" role="img" aria-label="NorthStar Bank logo">
+  <rect width="220" height="110" rx="16" fill="#0f172a"/>
+  <path d="M110 18L124 42L152 45L131 62L137 88L110 73L83 88L89 62L68 45L96 42L110 18Z" fill="#dfe7f1"/>
+  <path d="M110 26L120 41L138 43L125 54L129 70L110 60L91 70L95 54L82 43L100 41L110 26Z" fill="#8c9bb1"/>
+  <text x="110" y="98" text-anchor="middle" fill="#dfe7f1" font-size="14" font-family="Arial, Helvetica, sans-serif" letter-spacing="2">NORTHSTAR</text>
+</svg>

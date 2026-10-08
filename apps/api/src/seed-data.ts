@@ -99,6 +99,119 @@ export const findOrganization = (
     (organization) => organization.id.value === organizationId
   );
 
+const default2027TournamentSeed = [
+  {
+    id: 'sunset-open',
+    organizationId: 'fgl',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • June 2 at Turf Paradise',
+    type: 'fli' as const,
+    scheduledOn: '2027-06-02T22:00:00.000Z',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-2027-turf-06-16',
+    organizationId: 'fgl',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • June 16 at Turf Paradise',
+    type: 'fli' as const,
+    scheduledOn: '2027-06-16T22:00:00.000Z',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-2027-turf-06-30',
+    organizationId: 'fgl',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • June 30 at Turf Paradise',
+    type: 'fli' as const,
+    scheduledOn: '2027-06-30T22:00:00.000Z',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-2027-az-07-14',
+    organizationId: 'fgl',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • July 14 at Arizona Athletic Grounds',
+    type: 'fli' as const,
+    scheduledOn: '2027-07-14T22:00:00.000Z',
+    courseId: 'course-2'
+  },
+  {
+    id: 'summer-2027-az-07-28',
+    organizationId: 'fgl',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • July 28 at Arizona Athletic Grounds',
+    type: 'fli' as const,
+    scheduledOn: '2027-07-28T22:00:00.000Z',
+    courseId: 'course-2'
+  },
+  {
+    id: 'summer-championship',
+    organizationId: 'fgl',
+    seasonId: 'summer-2027',
+    name: 'Summer Season • August 11 at Arizona Athletic Grounds',
+    type: 'fli' as const,
+    scheduledOn: '2027-08-11T22:00:00.000Z',
+    courseId: 'course-2'
+  },
+  {
+    id: 'canyon-heat-cup',
+    organizationId: 'fgl',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • September 16 at Turf Paradise',
+    type: 'fli' as const,
+    scheduledOn: '2027-09-16T22:00:00.000Z',
+    courseId: 'course-1'
+  },
+  {
+    id: 'summer-solstice-invitational',
+    organizationId: 'fgl',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • September 30 at Arizona Athletic Grounds',
+    type: 'fli' as const,
+    scheduledOn: '2027-09-30T22:00:00.000Z',
+    courseId: 'course-2'
+  },
+  {
+    id: 'high-desert-classic',
+    organizationId: 'fgl',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • October 14 at Turf Paradise',
+    type: 'fli' as const,
+    scheduledOn: '2027-10-14T22:00:00.000Z',
+    courseId: 'course-1'
+  },
+  {
+    id: 'mesa-flight-showdown',
+    organizationId: 'fgl',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • October 28 at Arizona Athletic Grounds',
+    type: 'fli' as const,
+    scheduledOn: '2027-10-28T22:00:00.000Z',
+    courseId: 'course-2'
+  },
+  {
+    id: 'fall-2027-turf-11-11',
+    organizationId: 'fgl',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • November 11 at Turf Paradise',
+    type: 'fli' as const,
+    scheduledOn: '2027-11-11T22:00:00.000Z',
+    courseId: 'course-1'
+  },
+  {
+    id: 'fall-2027-az-12-09',
+    organizationId: 'fgl',
+    seasonId: 'fall-2027',
+    name: 'Fall Season • December 9 at Arizona Athletic Grounds',
+    type: 'fli' as const,
+    scheduledOn: '2027-12-09T22:00:00.000Z',
+    courseId: 'course-2'
+  }
+] as const;
+
+export const defaultTournamentSeed = default2027TournamentSeed;
+
 export const createBusinessRepositories = () => ({
   departments: new InMemoryDepartmentRepository([
     Department.create({
@@ -164,23 +277,25 @@ export const createLeagueRepositories = () => ({
   ]),
   seasons: new InMemorySeasonRepository([
     Season.create({
-      id: 'summer-season',
+      id: 'summer-2027',
       leagueId: 'fgl-league',
       name: 'Summer Season',
       brand: 'FLI Golf League',
-      startsOn: new Date('2026-05-01T00:00:00.000Z'),
-      endsOn: new Date('2026-08-31T23:59:59.999Z'),
+      startsOn: new Date('2027-05-31T00:00:00.000Z'),
+      endsOn: new Date('2027-08-31T23:59:59.999Z'),
       yearlyPurseMinorUnits: 400_000_000,
+      yearlyPurseCurrency: 'USD',
       status: 'current'
     }),
     Season.create({
-      id: 'summer-2-season',
+      id: 'fall-2027',
       leagueId: 'fgl-league',
-      name: 'Summer 2 Season',
+      name: 'Fall Season',
       brand: 'FLI Golf League',
-      startsOn: new Date('2027-06-01T00:00:00.000Z'),
-      endsOn: new Date('2027-08-31T23:59:59.999Z'),
+      startsOn: new Date('2027-09-12T00:00:00.000Z'),
+      endsOn: new Date('2027-12-13T23:59:59.999Z'),
       yearlyPurseMinorUnits: 800_000_000,
+      yearlyPurseCurrency: 'USD',
       status: 'upcoming'
     }),
     Season.create({
@@ -457,60 +572,15 @@ export const createLeagueRepositories = () => ({
     })
   ]),
   tournaments: new InMemoryTournamentRepository([
-    Tournament.create({
-      id: 'sunset-open',
-      organizationId: 'fgl',
-      seasonId: 'summer-season',
-      name: 'Sunset Open',
-      type: 'fli',
-      scheduledOn: new Date('2026-06-02T22:00:00.000Z'),
-      courseId: 'course-1'
-    }),
-    Tournament.create({
-      id: 'summer-championship',
-      organizationId: 'fgl',
-      seasonId: 'summer-season',
-      name: 'Summer Championship',
-      type: 'fli',
-      scheduledOn: new Date('2026-08-11T22:00:00.000Z'),
-      courseId: 'course-2'
-    }),
-    Tournament.create({
-      id: 'canyon-heat-cup',
-      organizationId: 'fgl',
-      seasonId: 'summer-2-season',
-      name: 'Canyon Heat Cup',
-      type: 'fli',
-      scheduledOn: new Date('2027-06-16T22:00:00.000Z'),
-      courseId: 'course-1'
-    }),
-    Tournament.create({
-      id: 'summer-solstice-invitational',
-      organizationId: 'fgl',
-      seasonId: 'summer-2-season',
-      name: 'Summer Solstice Invitational',
-      type: 'fli',
-      scheduledOn: new Date('2027-06-30T22:00:00.000Z'),
-      courseId: 'course-2'
-    }),
-    Tournament.create({
-      id: 'high-desert-classic',
-      organizationId: 'fgl',
-      seasonId: 'summer-2-season',
-      name: 'High Desert Classic',
-      type: 'fli',
-      scheduledOn: new Date('2027-07-14T22:00:00.000Z'),
-      courseId: 'course-1'
-    }),
-    Tournament.create({
-      id: 'mesa-flight-showdown',
-      organizationId: 'fgl',
-      seasonId: 'summer-2-season',
-      name: 'Mesa Flight Showdown',
-      type: 'fli',
-      scheduledOn: new Date('2027-07-28T22:00:00.000Z'),
-      courseId: 'course-2'
-    }),
+    ...defaultTournamentSeed.map((seed) => Tournament.create({
+      id: seed.id,
+      organizationId: seed.organizationId,
+      seasonId: seed.seasonId,
+      name: seed.name,
+      type: seed.type,
+      scheduledOn: new Date(seed.scheduledOn),
+      courseId: seed.courseId
+    })),
     Tournament.create({
       id: 'course-community-cup',
       organizationId: 'org-2',
@@ -566,42 +636,42 @@ export const createLeagueRepositories = () => ({
       id: 'sunset-open-group-1',
       tournamentId: 'sunset-open',
       number: 1,
-      teeTime: '3:00 PM PST',
+      teeTime: '3:00 PM MST',
       teamIds: ['ace-makers', 'midas-touch']
     }),
     TournamentTeeGroup.create({
       id: 'sunset-open-group-2',
       tournamentId: 'sunset-open',
       number: 2,
-      teeTime: '3:10 PM PST',
+      teeTime: '3:10 PM MST',
       teamIds: ['birdie-storm', 'hyzer-heros']
     }),
     TournamentTeeGroup.create({
       id: 'sunset-open-group-3',
       tournamentId: 'sunset-open',
       number: 3,
-      teeTime: '3:20 PM PST',
+      teeTime: '3:20 PM MST',
       teamIds: ['chain-breakers', 'huk-a-mania']
     }),
     TournamentTeeGroup.create({
       id: 'sunset-open-group-4',
       tournamentId: 'sunset-open',
       number: 4,
-      teeTime: '3:30 PM PST',
+      teeTime: '3:30 PM MST',
       teamIds: ['chain-seekers', 'glide-masters']
     }),
     TournamentTeeGroup.create({
       id: 'sunset-open-group-5',
       tournamentId: 'sunset-open',
       number: 5,
-      teeTime: '3:40 PM PST',
+      teeTime: '3:40 PM MST',
       teamIds: ['disc-dynasty', 'flight-squad']
     }),
     TournamentTeeGroup.create({
       id: 'sunset-open-group-6',
       tournamentId: 'sunset-open',
       number: 6,
-      teeTime: '3:50 PM PST',
+      teeTime: '3:50 PM MST',
       teamIds: ['disc-jesters', 'fairway-bombers']
     })
   ]),
