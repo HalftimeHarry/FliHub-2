@@ -60,6 +60,8 @@ import {
   fetchSponsors,
   fetchSponsorshipDeals,
   fetchSponsorshipTiers,
+  fetchTicketPurchases,
+  fetchTicketTypes,
   fetchTeams,
   fetchTournamentRegistrations,
   fetchTournamentTeeGroupScorecard,
@@ -95,6 +97,8 @@ import {
   type SponsorshipDealDto,
   type SponsorshipTierDto,
   type TeamDto,
+  type TicketPurchaseDto,
+  type TicketTypeDto,
   type TournamentDto,
   type TournamentTeeGroupDto,
   type TournamentTeeGroupScorecardDto,
@@ -134,6 +138,8 @@ interface DashboardData {
   readonly sponsors: readonly SponsorDto[];
   readonly sponsorshipTiers: readonly SponsorshipTierDto[];
   readonly sponsorshipDeals: readonly SponsorshipDealDto[];
+  readonly ticketTypes: readonly TicketTypeDto[];
+  readonly ticketPurchases: readonly TicketPurchaseDto[];
   readonly teams: readonly TeamDto[];
   readonly tournaments: readonly TournamentDto[];
   readonly courses: readonly CourseDto[];
@@ -171,6 +177,7 @@ const sectionIcons = {
   holes: FileText,
   registrations: BriefcaseBusiness,
   sponsors: BadgeDollarSign,
+  tickets: WalletCards,
   fantasy: Sparkles,
   drafts: FolderKanban,
   departments: BriefcaseBusiness,
@@ -189,6 +196,7 @@ const dashboardSections = [
   { value: 'holes', label: 'Holes', group: 'League' },
   { value: 'registrations', label: 'Registrations', group: 'League' },
   { value: 'sponsors', label: 'Sponsors', group: 'Business' },
+  { value: 'tickets', label: 'Tickets', group: 'Business' },
   { value: 'fantasy', label: 'Fantasy', group: 'Fantasy' },
   { value: 'drafts', label: 'Drafts', group: 'Fantasy' },
   { value: 'departments', label: 'Departments', group: 'Workspace' },
@@ -2557,6 +2565,8 @@ export function Dashboard({
       fetchSponsors(),
       fetchSponsorshipTiers(),
       fetchSponsorshipDeals(),
+      fetchTicketTypes(),
+      fetchTicketPurchases(),
       fetchTeams(),
       fetchTournaments(),
       fetchCourses(),
@@ -2578,6 +2588,8 @@ export function Dashboard({
         sponsors,
         sponsorshipTiers,
         sponsorshipDeals,
+        ticketTypes,
+        ticketPurchases,
         teams,
         tournaments,
         courses,
@@ -2600,6 +2612,8 @@ export function Dashboard({
             sponsors,
             sponsorshipTiers,
             sponsorshipDeals,
+            ticketTypes,
+            ticketPurchases,
             teams,
             tournaments,
             courses,
@@ -3492,6 +3506,76 @@ export function Dashboard({
                           </TableRow>
                         );
                       });
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {activeSection === 'tickets' && (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+                  <p className="text-sm text-muted-foreground">
+                    Minimal tournament admission inventory and purchase activity for the demo league.
+                  </p>
+                  <Badge variant="outline">Demo ticketing</Badge>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Ticket</TableHead>
+                      <TableHead>Tournament</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Capacity</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(data?.ticketTypes ?? []).map((ticketType) => (
+                      <TableRow key={ticketType.id}>
+                        <TableCell>{ticketType.name}</TableCell>
+                        <TableCell>{getTournamentNameById(ticketType.tournamentId, data?.tournaments ?? [])}</TableCell>
+                        <TableCell>{formatCurrency(ticketType.priceMinorUnits / 100)}</TableCell>
+                        <TableCell>{ticketType.capacity ?? 'Unlimited'}</TableCell>
+                        <TableCell>
+                          <Badge variant={ticketType.active ? 'default' : 'secondary'}>
+                            {ticketType.active ? 'active' : 'inactive'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Buyer</TableHead>
+                      <TableHead>Ticket</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Charge</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(data?.ticketPurchases ?? []).map((purchase) => {
+                      const ticketType = (data?.ticketTypes ?? []).find((item) => item.id === purchase.ticketTypeId);
+                      return (
+                        <TableRow key={purchase.id}>
+                          <TableCell>{purchase.purchaserName}</TableCell>
+                          <TableCell>{ticketType?.name ?? purchase.ticketTypeId}</TableCell>
+                          <TableCell>{purchase.quantity}</TableCell>
+                          <TableCell>{formatCurrency(purchase.totalMinorUnits / 100)}</TableCell>
+                          <TableCell>{purchase.source}</TableCell>
+                          <TableCell>
+                            <Badge variant={purchase.status === 'paid' ? 'default' : purchase.status === 'cancelled' ? 'destructive' : 'secondary'}>
+                              {purchase.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      );
                     })}
                   </TableBody>
                 </Table>

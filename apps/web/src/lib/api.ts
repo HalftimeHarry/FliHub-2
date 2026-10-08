@@ -191,6 +191,32 @@ export interface SponsorshipDealDto {
   readonly isTitleSponsor?: boolean;
 }
 
+export interface TicketTypeDto {
+  readonly id: string;
+  readonly tournamentId: string;
+  readonly name: string;
+  readonly priceMinorUnits: number;
+  readonly currency: string;
+  readonly capacity?: number;
+  readonly active: boolean;
+  readonly createdAt: string;
+}
+
+export interface TicketPurchaseDto {
+  readonly id: string;
+  readonly ticketTypeId: string;
+  readonly quantity: number;
+  readonly unitPriceMinorUnits: number;
+  readonly totalMinorUnits: number;
+  readonly currency: string;
+  readonly purchaserName: string;
+  readonly purchaserEmail?: string;
+  readonly purchaserPhone?: string;
+  readonly source: 'demo' | 'checkout';
+  readonly status: 'pending' | 'paid' | 'cancelled';
+  readonly createdAt: string;
+}
+
 export const formatDateOnlyUtc = (value: string): string =>
   new Intl.DateTimeFormat('en-US', {
     timeZone: 'UTC',
@@ -1091,6 +1117,68 @@ const defaultSponsorshipDealSeed: readonly SponsorshipDealDto[] = [
   }
 ];
 
+const defaultTicketTypeSeed: readonly TicketTypeDto[] = [
+  {
+    id: 'ticket-general-tournament-1',
+    tournamentId: 'tournament-1',
+    name: 'General Admission',
+    priceMinorUnits: 4500,
+    currency: 'USD',
+    capacity: 200,
+    active: true,
+    createdAt: '2027-05-01T00:00:00.000Z'
+  },
+  {
+    id: 'ticket-vip-tournament-1',
+    tournamentId: 'tournament-1',
+    name: 'VIP',
+    priceMinorUnits: 12000,
+    currency: 'USD',
+    capacity: 40,
+    active: true,
+    createdAt: '2027-05-01T00:00:00.000Z'
+  },
+  {
+    id: 'ticket-general-tournament-2',
+    tournamentId: 'tournament-2',
+    name: 'General Admission',
+    priceMinorUnits: 5000,
+    currency: 'USD',
+    capacity: 150,
+    active: true,
+    createdAt: '2027-05-02T00:00:00.000Z'
+  }
+] satisfies readonly TicketTypeDto[];
+
+const defaultTicketPurchaseSeed: readonly TicketPurchaseDto[] = [
+  {
+    id: 'ticket-purchase-1',
+    ticketTypeId: 'ticket-general-tournament-1',
+    quantity: 2,
+    unitPriceMinorUnits: 4500,
+    totalMinorUnits: 9000,
+    currency: 'USD',
+    purchaserName: 'Dana Patel',
+    purchaserEmail: 'dana@example.com',
+    source: 'demo',
+    status: 'paid',
+    createdAt: '2027-05-07T19:00:00.000Z'
+  },
+  {
+    id: 'ticket-purchase-2',
+    ticketTypeId: 'ticket-vip-tournament-1',
+    quantity: 1,
+    unitPriceMinorUnits: 12000,
+    totalMinorUnits: 12000,
+    currency: 'USD',
+    purchaserName: 'Mason Cruz',
+    purchaserEmail: 'mason@example.com',
+    source: 'checkout',
+    status: 'pending',
+    createdAt: '2027-05-09T12:30:00.000Z'
+  }
+] satisfies readonly TicketPurchaseDto[];
+
 const readPersistedDemoArray = <Value>(
   key: string,
   fallback: readonly Value[],
@@ -1316,6 +1404,8 @@ const demoData: Record<string, unknown> = {
   '/sponsorship/tiers': defaultSponsorshipTierSeed satisfies readonly SponsorshipTierDto[],
   '/sponsorship/sponsors': defaultSponsorSeed satisfies readonly SponsorDto[],
   '/sponsorship/deals': defaultSponsorshipDealSeed satisfies readonly SponsorshipDealDto[],
+  '/ticketing/types': defaultTicketTypeSeed satisfies readonly TicketTypeDto[],
+  '/ticketing/purchases': defaultTicketPurchaseSeed satisfies readonly TicketPurchaseDto[],
   '/league/courses': [
     {
       id: 'course-1',
@@ -1513,6 +1603,18 @@ const getDemoJson = (path: string): unknown => {
       defaultSponsorshipDealSeed
     );
   }
+  if (path === '/ticketing/types') {
+    return getPersistedDemoCollection<TicketTypeDto>(
+      demoTicketTypesStorageKey,
+      defaultTicketTypeSeed
+    );
+  }
+  if (path === '/ticketing/purchases') {
+    return getPersistedDemoCollection<TicketPurchaseDto>(
+      demoTicketPurchasesStorageKey,
+      defaultTicketPurchaseSeed
+    );
+  }
   if (path === '/organization') {
     return (
       getOrganizationCatalog().find(
@@ -1543,7 +1645,9 @@ const getJson = async <Value>(path: string): Promise<Value> => {
     '/league/seasons',
     '/sponsorship/tiers',
     '/sponsorship/sponsors',
-    '/sponsorship/deals'
+    '/sponsorship/deals',
+    '/ticketing/types',
+    '/ticketing/purchases'
   ].includes(path)
     ? getPersistedDemoCollection(
         path === '/league/seasons'
@@ -1552,14 +1656,22 @@ const getJson = async <Value>(path: string): Promise<Value> => {
             ? demoSponsorshipTiersStorageKey
             : path === '/sponsorship/sponsors'
               ? demoSponsorsStorageKey
-              : demoSponsorshipDealsStorageKey,
+              : path === '/sponsorship/deals'
+                ? demoSponsorshipDealsStorageKey
+                : path === '/ticketing/types'
+                  ? demoTicketTypesStorageKey
+                  : demoTicketPurchasesStorageKey,
         path === '/league/seasons'
           ? defaultSeasonSeed
           : path === '/sponsorship/tiers'
             ? defaultSponsorshipTierSeed
             : path === '/sponsorship/sponsors'
               ? defaultSponsorSeed
-              : defaultSponsorshipDealSeed
+              : path === '/sponsorship/deals'
+                ? defaultSponsorshipDealSeed
+                : path === '/ticketing/types'
+                  ? defaultTicketTypeSeed
+                  : defaultTicketPurchaseSeed
       )
     : undefined;
 
@@ -1707,6 +1819,20 @@ export const fetchSponsorshipTiers = () =>
   getJson<readonly SponsorshipTierDto[]>('/sponsorship/tiers');
 export const fetchSponsorshipDeals = () =>
   getJson<readonly SponsorshipDealDto[]>('/sponsorship/deals');
+export const fetchTicketTypes = () =>
+  getJson<readonly TicketTypeDto[]>('/ticketing/types');
+export const fetchTicketPurchases = () =>
+  getJson<readonly TicketPurchaseDto[]>('/ticketing/purchases');
+export const createTicketType = (input: Omit<TicketTypeDto, 'id' | 'createdAt'> & { readonly id?: string; readonly createdAt?: string }) => postJson<TicketTypeDto>('/ticketing/types', {
+  ...input,
+  id: input.id ?? `ticket-${Date.now().toString()}`,
+  createdAt: input.createdAt ?? new Date().toISOString()
+});
+export const createTicketPurchase = (input: Omit<TicketPurchaseDto, 'id' | 'createdAt'> & { readonly id?: string; readonly createdAt?: string }) => postJson<TicketPurchaseDto>('/ticketing/purchases', {
+  ...input,
+  id: input.id ?? `purchase-${Date.now().toString()}`,
+  createdAt: input.createdAt ?? new Date().toISOString()
+});
 export const fetchCourses = () =>
   getJson<readonly CourseDto[]>('/league/courses');
 export const fetchHoles = () => getJson<readonly HoleDto[]>('/league/holes');
