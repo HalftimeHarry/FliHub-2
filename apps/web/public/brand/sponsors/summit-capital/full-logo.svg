@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 110" role="img" aria-label="Summit Capital logo">
+  <defs>
+    <linearGradient id="summitBg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#172554"/>
+    </linearGradient>
+  </defs>
+  <rect width="220" height="110" rx="16" fill="url(#summitBg)"/>
+  <circle cx="178" cy="30" r="12" fill="#d4af37" opacity="0.9"/>
+  <path d="M18 72L62 36L90 58L118 28L164 72H18Z" fill="#d4af37"/>
+  <path d="M42 80H180L164 92H58L42 80Z" fill="#f7e7a8" opacity="0.72"/>
+  <path d="M116 18L124 34L142 36L128 47L132 64L116 54L100 64L104 47L90 36L108 34L116 18Z" fill="#f5d76c"/>
+  <text x="110" y="90" text-anchor="middle" fill="#f5d76c" font-size="16" font-family="Arial, Helvetica, sans-serif" letter-spacing="2">SUMMIT</text>
+</svg>

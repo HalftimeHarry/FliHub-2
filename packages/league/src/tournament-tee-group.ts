@@ -30,10 +30,10 @@ export class TournamentTeeGroup {
         'A tee group must contain exactly two different teams.'
       );
     }
-    if (!/^\d{1,2}:\d{2} (AM|PM) PST$/.test(input.teeTime)) {
+    if (!/^\d{1,2}:\d{2} (AM|PM) [A-Z]{2,5}$/.test(input.teeTime)) {
       throw new DomainError(
         'league.tournament_tee_group.invalid_tee_time',
-        'Tee time must use the format h:mm AM/PM PST.'
+        'Tee time must use the format h:mm AM/PM TZ.'
       );
     }
 

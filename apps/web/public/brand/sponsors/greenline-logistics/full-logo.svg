@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 110" role="img" aria-label="Greenline Logistics logo">
+  <rect width="220" height="110" rx="16" fill="#edfdf2"/>
+  <path d="M18 70L68 30L94 44L142 20L200 70" fill="none" stroke="#1f8f4b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M160 20L200 70H172L154 46L160 20Z" fill="#2dc26a"/>
+  <circle cx="68" cy="30" r="8" fill="#2dc26a"/>
+  <circle cx="142" cy="20" r="8" fill="#2dc26a"/>
+  <path d="M30 86H190" stroke="#8ad7a0" stroke-width="6" stroke-linecap="round"/>
+  <text x="110" y="94" text-anchor="middle" fill="#1a6f3d" font-size="13" font-family="Arial, Helvetica, sans-serif" letter-spacing="2">GREENLINE</text>
+</svg>

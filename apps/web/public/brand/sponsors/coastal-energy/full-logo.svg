@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 110" role="img" aria-label="Coastal Energy logo">
+  <defs>
+    <linearGradient id="coastalBg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#0b1d4d"/>
+      <stop offset="100%" stop-color="#143c72"/>
+    </linearGradient>
+  </defs>
+  <rect width="220" height="110" rx="16" fill="url(#coastalBg)"/>
+  <circle cx="70" cy="36" r="24" fill="#ff9b2f"/>
+  <path d="M52 47C80 70 101 72 140 74C168 76 186 66 204 52V86H32C34 76 41 58 52 47Z" fill="#ffb54e" opacity="0.8"/>
+  <path d="M22 76C46 66 70 62 90 69C110 75 130 84 150 82C172 80 188 71 204 60V90H22V76Z" fill="#1f7ad7"/>
+  <text x="110" y="90" text-anchor="middle" fill="#ffd7a6" font-size="14" font-family="Arial, Helvetica, sans-serif" letter-spacing="2">COASTAL</text>
+</svg>
