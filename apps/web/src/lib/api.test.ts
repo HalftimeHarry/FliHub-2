@@ -157,6 +157,22 @@ describe('sponsor logo metadata', () => {
     expect(JSON.parse(storage.getItem('flihub-demo-ticket-purchases') ?? '[]')).toHaveLength(2);
     expect(JSON.parse(storage.getItem('flihub-demo-ticket-purchases') ?? '[]')[0]?.purchaserName).toBe('Dana Patel');
   });
+
+  it('seeds a starter roster and six-current-season tournament slate on reset', () => {
+    const storage = createStorage();
+
+    resetDemoSeasonAndSponsorData(storage);
+
+    const players = JSON.parse(storage.getItem('flihub-demo-players') ?? '[]');
+    const teams = JSON.parse(storage.getItem('flihub-demo-teams') ?? '[]');
+    const tournaments = JSON.parse(storage.getItem('flihub-demo-tournaments') ?? '[]');
+
+    expect(players).toHaveLength(24);
+    expect(players.some((player: { id: string }) => player.id === 'simon-lizotte')).toBe(true);
+    expect(teams).toHaveLength(12);
+    expect(teams.some((team: { name: string }) => team.name === 'Ace Makers')).toBe(true);
+    expect(tournaments.filter((tournament: { seasonId: string }) => tournament.seasonId === 'summer-2027')).toHaveLength(6);
+  });
 });
 
 describe('season date-only formatting', () => {
