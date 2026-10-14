@@ -901,6 +901,9 @@ const demoSeasonsStorageKey = 'flihub-demo-seasons';
 const demoSponsorshipTiersStorageKey = 'flihub-demo-sponsorship-tiers';
 const demoSponsorsStorageKey = 'flihub-demo-sponsors';
 const demoSponsorshipDealsStorageKey = 'flihub-demo-sponsorship-deals';
+const demoPlayersStorageKey = 'flihub-demo-players';
+const demoTeamsStorageKey = 'flihub-demo-teams';
+const demoTournamentsStorageKey = 'flihub-demo-tournaments';
 const demoTicketTypesStorageKey = 'flihub-demo-ticket-types';
 const demoTicketPurchasesStorageKey = 'flihub-demo-ticket-purchases';
 
@@ -1181,6 +1184,48 @@ const defaultTicketPurchaseSeed: readonly TicketPurchaseDto[] = [
   }
 ] satisfies readonly TicketPurchaseDto[];
 
+const defaultPlayerSeed: readonly PlayerDto[] = [
+  { id: 'ricky-wysocki', brand: 'Huk A Mania', displayName: 'Ricky Wysocki', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'evelina-salonen', brand: 'Huk A Mania', displayName: 'Evelina Salonen', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'gannon-buhr', brand: 'Hyzer Heroes', displayName: 'Gannon Buhr', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'kristin-latt', brand: 'Hyzer Heroes', displayName: 'Kristin Latt', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'isaac-robinson', brand: 'Birdie Storm', displayName: 'Isaac Robinson', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'missy-gannon', brand: 'Birdie Storm', displayName: 'Missy Gannon', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'calvin-heimburg', brand: 'Flight Squad', displayName: 'Calvin Heimburg', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'ohn-scoggins', brand: 'Flight Squad', displayName: 'Ohn Scoggins', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'simon-lizotte', brand: 'Ace Makers', displayName: 'Simon Lizotte', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'kat-mertsch', brand: 'Ace Makers', displayName: 'Kat Mertsch', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'paul-mcbeth', brand: 'Chain Breakers', displayName: 'Paul McBeth', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'holyn-handley', brand: 'Chain Breakers', displayName: 'Holyn Handley', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'anthony-barela', brand: 'Chain Seekers', displayName: 'Anthony Barela', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'hailey-king', brand: 'Chain Seekers', displayName: 'Hailey King', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'chris-dickerson', brand: 'Disc Dynasty', displayName: 'Chris Dickerson', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'paige-pierce', brand: 'Disc Dynasty', displayName: 'Paige Pierce', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'kyle-klein', brand: 'Disc Jesters', displayName: 'Kyle Klein', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'silva-saarinen', brand: 'Disc Jesters', displayName: 'Silva Saarinen', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'niklas-anttila', brand: 'Fairway Bombers', displayName: 'Niklas Anttila', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'heidi-laine', brand: 'Fairway Bombers', displayName: 'Heidi Laine', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'ezra-robinson', brand: 'Glide Masters', displayName: 'Ezra Robinson', active: true, playerType: 'professional', gender: 'male' },
+  { id: 'natalie-ryan', brand: 'Glide Masters', displayName: 'Natalie Ryan', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'ella-hansen', brand: 'Midas Touch', displayName: 'Ella Hansen', active: true, playerType: 'professional', gender: 'female' },
+  { id: 'matthew-orum', brand: 'Midas Touch', displayName: 'Matthew Orum', active: true, playerType: 'professional', gender: 'male' }
+] satisfies readonly PlayerDto[];
+
+const defaultTeamSeed: readonly TeamDto[] = [
+  { id: 'team-huk-a-mania', organizationId: 'fgl', name: 'Huk A Mania', brand: 'Huk A Mania', malePlayerId: 'ricky-wysocki', femalePlayerId: 'evelina-salonen' },
+  { id: 'team-hyzer-heroes', organizationId: 'fgl', name: 'Hyzer Heroes', brand: 'Hyzer Heroes', malePlayerId: 'gannon-buhr', femalePlayerId: 'kristin-latt' },
+  { id: 'team-birdie-storm', organizationId: 'fgl', name: 'Birdie Storm', brand: 'Birdie Storm', malePlayerId: 'isaac-robinson', femalePlayerId: 'missy-gannon' },
+  { id: 'team-flight-squad', organizationId: 'fgl', name: 'Flight Squad', brand: 'Flight Squad', malePlayerId: 'calvin-heimburg', femalePlayerId: 'ohn-scoggins' },
+  { id: 'team-ace-makers', organizationId: 'fgl', name: 'Ace Makers', brand: 'Ace Makers', malePlayerId: 'simon-lizotte', femalePlayerId: 'kat-mertsch' },
+  { id: 'team-chain-breakers', organizationId: 'fgl', name: 'Chain Breakers', brand: 'Chain Breakers', malePlayerId: 'paul-mcbeth', femalePlayerId: 'holyn-handley' },
+  { id: 'team-chain-seekers', organizationId: 'fgl', name: 'Chain Seekers', brand: 'Chain Seekers', malePlayerId: 'anthony-barela', femalePlayerId: 'hailey-king' },
+  { id: 'team-disc-dynasty', organizationId: 'fgl', name: 'Disc Dynasty', brand: 'Disc Dynasty', malePlayerId: 'chris-dickerson', femalePlayerId: 'paige-pierce' },
+  { id: 'team-disc-jesters', organizationId: 'fgl', name: 'Disc Jesters', brand: 'Disc Jesters', malePlayerId: 'kyle-klein', femalePlayerId: 'silva-saarinen' },
+  { id: 'team-fairway-bombers', organizationId: 'fgl', name: 'Fairway Bombers', brand: 'Fairway Bombers', malePlayerId: 'niklas-anttila', femalePlayerId: 'heidi-laine' },
+  { id: 'team-glide-masters', organizationId: 'fgl', name: 'Glide Masters', brand: 'Glide Masters', malePlayerId: 'ezra-robinson', femalePlayerId: 'natalie-ryan' },
+  { id: 'team-midas-touch', organizationId: 'fgl', name: 'Midas Touch', brand: 'Midas Touch', malePlayerId: 'matthew-orum', femalePlayerId: 'ella-hansen' }
+] satisfies readonly TeamDto[];
+
 const readPersistedDemoArray = <Value>(
   key: string,
   fallback: readonly Value[],
@@ -1210,17 +1255,26 @@ export const resetDemoSeasonAndSponsorData = (
   readonly tiers: readonly SponsorshipTierDto[];
   readonly sponsors: readonly SponsorDto[];
   readonly deals: readonly SponsorshipDealDto[];
+  readonly players: readonly PlayerDto[];
+  readonly teams: readonly TeamDto[];
+  readonly tournaments: readonly TournamentDto[];
 } => {
   const nextSeasons = [...defaultSeasonSeed];
   const nextTiers = [...defaultSponsorshipTierSeed];
   const nextSponsors = [...defaultSponsorSeed];
   const nextDeals = [...defaultSponsorshipDealSeed];
+  const nextPlayers = [...defaultPlayerSeed];
+  const nextTeams = [...defaultTeamSeed];
+  const nextTournaments = [...defaultTournamentSeedForDemo];
 
   if (storage !== undefined) {
     storage.setItem(demoSeasonsStorageKey, JSON.stringify(nextSeasons));
     storage.setItem(demoSponsorshipTiersStorageKey, JSON.stringify(nextTiers));
     storage.setItem(demoSponsorsStorageKey, JSON.stringify(nextSponsors));
     storage.setItem(demoSponsorshipDealsStorageKey, JSON.stringify(nextDeals));
+    storage.setItem(demoPlayersStorageKey, JSON.stringify(nextPlayers));
+    storage.setItem(demoTeamsStorageKey, JSON.stringify(nextTeams));
+    storage.setItem(demoTournamentsStorageKey, JSON.stringify(nextTournaments));
     storage.setItem(demoTicketTypesStorageKey, JSON.stringify(defaultTicketTypeSeed));
     storage.setItem(
       demoTicketPurchasesStorageKey,
@@ -1236,6 +1290,9 @@ export const resetDemoSeasonAndSponsorData = (
   demoData['/sponsorship/tiers'] = nextTiers;
   demoData['/sponsorship/sponsors'] = nextSponsors;
   demoData['/sponsorship/deals'] = nextDeals;
+  demoData['/league/players'] = nextPlayers;
+  demoData['/league/teams'] = nextTeams;
+  demoData['/league/tournaments'] = nextTournaments;
   demoData['/ticketing/types'] = defaultTicketTypeSeed;
   demoData['/ticketing/purchases'] = defaultTicketPurchaseSeed;
 
@@ -1243,7 +1300,10 @@ export const resetDemoSeasonAndSponsorData = (
     seasons: nextSeasons,
     tiers: nextTiers,
     sponsors: nextSponsors,
-    deals: nextDeals
+    deals: nextDeals,
+    players: nextPlayers,
+    teams: nextTeams,
+    tournaments: nextTournaments
   };
 };
 
@@ -1372,43 +1432,9 @@ const defaultTournamentSeedForDemo: readonly TournamentDto[] = [
 ] satisfies readonly TournamentDto[];
 
 const demoData: Record<string, unknown> = {
-  '/league/players': [
-    {
-      id: 'simon-lizotte',
-      displayName: 'Simon Lizotte',
-      active: true,
-      playerType: 'professional',
-      team: 'Ace Makers',
-      status: 'active'
-    },
-    {
-      id: 'kat-mertsch',
-      displayName: 'Kat Mertsch',
-      active: true,
-      playerType: 'professional',
-      team: 'Ace Makers',
-      status: 'active'
-    },
-    {
-      id: 'player-3',
-      displayName: 'Sam Okafor',
-      active: true,
-      playerType: 'professional'
-    },
-    {
-      id: 'player-4',
-      displayName: 'Casey Nguyen',
-      active: true,
-      playerType: 'professional'
-    },
-    {
-      id: 'player-5',
-      displayName: 'Morgan Lee',
-      active: false,
-      playerType: 'professional'
-    }
-  ] satisfies readonly PlayerDto[],
+  '/league/players': defaultPlayerSeed,
   '/league/tournaments': defaultTournamentSeedForDemo,
+  '/league/teams': defaultTeamSeed,
   '/league/seasons': defaultSeasonSeed satisfies readonly SeasonDto[],
   '/sponsorship/tiers': defaultSponsorshipTierSeed satisfies readonly SponsorshipTierDto[],
   '/sponsorship/sponsors': defaultSponsorSeed satisfies readonly SponsorDto[],
@@ -1511,16 +1537,6 @@ const demoData: Record<string, unknown> = {
       registeredAt: '2026-06-04T09:40:00.000Z'
     }
   ] satisfies readonly TournamentRegistrationDto[],
-  '/league/teams': [
-    {
-      id: 'team-1',
-      organizationId: 'fgl',
-      name: 'Ace Makers',
-      brand: 'Ace Makers',
-      malePlayerId: 'simon-lizotte',
-      femalePlayerId: 'kat-mertsch'
-    }
-  ] satisfies readonly TeamDto[],
   '/fantasy/leagues': [
     {
       id: 'fantasy-league-1',
@@ -1612,6 +1628,24 @@ const getDemoJson = (path: string): unknown => {
       defaultSponsorshipDealSeed
     );
   }
+  if (path === '/league/players') {
+    return getPersistedDemoCollection<PlayerDto>(
+      demoPlayersStorageKey,
+      defaultPlayerSeed
+    );
+  }
+  if (path === '/league/teams') {
+    return getPersistedDemoCollection<TeamDto>(
+      demoTeamsStorageKey,
+      defaultTeamSeed
+    );
+  }
+  if (path === '/league/tournaments') {
+    return getPersistedDemoCollection<TournamentDto>(
+      demoTournamentsStorageKey,
+      defaultTournamentSeedForDemo
+    );
+  }
   if (path === '/ticketing/types') {
     return getPersistedDemoCollection<TicketTypeDto>(
       demoTicketTypesStorageKey,
@@ -1652,6 +1686,9 @@ const getDemoJson = (path: string): unknown => {
 const getJson = async <Value>(path: string): Promise<Value> => {
   const persistedDemoCollection = [
     '/league/seasons',
+    '/league/players',
+    '/league/teams',
+    '/league/tournaments',
     '/sponsorship/tiers',
     '/sponsorship/sponsors',
     '/sponsorship/deals',
@@ -1661,26 +1698,38 @@ const getJson = async <Value>(path: string): Promise<Value> => {
     ? getPersistedDemoCollection(
         path === '/league/seasons'
           ? demoSeasonsStorageKey
-          : path === '/sponsorship/tiers'
-            ? demoSponsorshipTiersStorageKey
-            : path === '/sponsorship/sponsors'
-              ? demoSponsorsStorageKey
-              : path === '/sponsorship/deals'
-                ? demoSponsorshipDealsStorageKey
-                : path === '/ticketing/types'
-                  ? demoTicketTypesStorageKey
-                  : demoTicketPurchasesStorageKey,
+          : path === '/league/players'
+            ? demoPlayersStorageKey
+            : path === '/league/teams'
+              ? demoTeamsStorageKey
+              : path === '/league/tournaments'
+                ? demoTournamentsStorageKey
+                : path === '/sponsorship/tiers'
+                  ? demoSponsorshipTiersStorageKey
+                  : path === '/sponsorship/sponsors'
+                    ? demoSponsorsStorageKey
+                    : path === '/sponsorship/deals'
+                      ? demoSponsorshipDealsStorageKey
+                      : path === '/ticketing/types'
+                        ? demoTicketTypesStorageKey
+                        : demoTicketPurchasesStorageKey,
         path === '/league/seasons'
           ? defaultSeasonSeed
-          : path === '/sponsorship/tiers'
-            ? defaultSponsorshipTierSeed
-            : path === '/sponsorship/sponsors'
-              ? defaultSponsorSeed
-              : path === '/sponsorship/deals'
-                ? defaultSponsorshipDealSeed
-                : path === '/ticketing/types'
-                  ? defaultTicketTypeSeed
-                  : defaultTicketPurchaseSeed
+          : path === '/league/players'
+            ? defaultPlayerSeed
+            : path === '/league/teams'
+              ? defaultTeamSeed
+              : path === '/league/tournaments'
+                ? defaultTournamentSeedForDemo
+                : path === '/sponsorship/tiers'
+                  ? defaultSponsorshipTierSeed
+                  : path === '/sponsorship/sponsors'
+                    ? defaultSponsorSeed
+                    : path === '/sponsorship/deals'
+                      ? defaultSponsorshipDealSeed
+                      : path === '/ticketing/types'
+                        ? defaultTicketTypeSeed
+                        : defaultTicketPurchaseSeed
       )
     : undefined;
 

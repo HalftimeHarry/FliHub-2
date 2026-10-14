@@ -3058,20 +3058,33 @@ export function Dashboard({
                       const nextReset = resetDemoSeasonAndSponsorData();
                       console.log('Reset payload', nextReset);
 
-                      void fetchSeasons().then((nextSeasons) => {
-                        console.log('Refetched seasons after reset', nextSeasons);
-                        setData((current) => {
-                          if (current === undefined) {
-                            return current;
-                          }
-                          return {
-                            ...current,
-                            seasons: nextSeasons
-                          };
-                        });
+                      void Promise.all([
+                      fetchPlayers(),
+                      fetchSeasons(),
+                      fetchTeams(),
+                      fetchTournaments()
+                    ]).then(([nextPlayers, nextSeasons, nextTeams, nextTournaments]) => {
+                      console.log('Refetched demo data after reset', {
+                        players: nextPlayers,
+                        seasons: nextSeasons,
+                        teams: nextTeams,
+                        tournaments: nextTournaments
                       });
+                      setData((current) => {
+                        if (current === undefined) {
+                          return current;
+                        }
+                        return {
+                          ...current,
+                          players: nextPlayers,
+                          seasons: nextSeasons,
+                          teams: nextTeams,
+                          tournaments: nextTournaments
+                        };
+                      });
+                    });
 
-                      onDepartmentsChanged?.();
+                    onDepartmentsChanged?.();
                     }}
                   >
                     Reset demo data
