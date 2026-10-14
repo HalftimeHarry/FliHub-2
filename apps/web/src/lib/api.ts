@@ -901,6 +901,8 @@ const demoSeasonsStorageKey = 'flihub-demo-seasons';
 const demoSponsorshipTiersStorageKey = 'flihub-demo-sponsorship-tiers';
 const demoSponsorsStorageKey = 'flihub-demo-sponsors';
 const demoSponsorshipDealsStorageKey = 'flihub-demo-sponsorship-deals';
+const demoTicketTypesStorageKey = 'flihub-demo-ticket-types';
+const demoTicketPurchasesStorageKey = 'flihub-demo-ticket-purchases';
 
 const getPersistedDemoCollection = <Value>(
   key: string,
@@ -1219,6 +1221,11 @@ export const resetDemoSeasonAndSponsorData = (
     storage.setItem(demoSponsorshipTiersStorageKey, JSON.stringify(nextTiers));
     storage.setItem(demoSponsorsStorageKey, JSON.stringify(nextSponsors));
     storage.setItem(demoSponsorshipDealsStorageKey, JSON.stringify(nextDeals));
+    storage.setItem(demoTicketTypesStorageKey, JSON.stringify(defaultTicketTypeSeed));
+    storage.setItem(
+      demoTicketPurchasesStorageKey,
+      JSON.stringify(defaultTicketPurchaseSeed)
+    );
     storage.setItem(
       demoSeasonResetStorageKey,
       JSON.stringify({ refreshedAt: new Date().toISOString() })
@@ -1229,6 +1236,8 @@ export const resetDemoSeasonAndSponsorData = (
   demoData['/sponsorship/tiers'] = nextTiers;
   demoData['/sponsorship/sponsors'] = nextSponsors;
   demoData['/sponsorship/deals'] = nextDeals;
+  demoData['/ticketing/types'] = defaultTicketTypeSeed;
+  demoData['/ticketing/purchases'] = defaultTicketPurchaseSeed;
 
   return {
     seasons: nextSeasons,
