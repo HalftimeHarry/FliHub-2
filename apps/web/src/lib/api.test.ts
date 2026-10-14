@@ -146,6 +146,17 @@ describe('sponsor logo metadata', () => {
     expect(reset.sponsors.find((sponsor) => sponsor.id === 'sponsor-go-throw')?.logoUrl).toBe('/brand/sponsors/northstar-bank/full-logo.svg');
     expect(reset.sponsors.find((sponsor) => sponsor.id === 'sponsor-coghlan-technology-group')?.logoUrl).toBe('/brand/sponsors/coastal-energy/full-logo.svg');
   });
+
+  it('resets persisted ticketing demo data alongside season and sponsor data', () => {
+    const storage = createStorage();
+
+    resetDemoSeasonAndSponsorData(storage);
+
+    expect(JSON.parse(storage.getItem('flihub-demo-ticket-types') ?? '[]')).toHaveLength(3);
+    expect(JSON.parse(storage.getItem('flihub-demo-ticket-types') ?? '[]')[0]?.name).toBe('General Admission');
+    expect(JSON.parse(storage.getItem('flihub-demo-ticket-purchases') ?? '[]')).toHaveLength(2);
+    expect(JSON.parse(storage.getItem('flihub-demo-ticket-purchases') ?? '[]')[0]?.purchaserName).toBe('Dana Patel');
+  });
 });
 
 describe('season date-only formatting', () => {
