@@ -6,3 +6,7 @@ coverage/
 !.env.example
 .DS_Store
 npm-debug.log*
+
+# Playwright demo videos
+demos/output/
+demos/.cache/
